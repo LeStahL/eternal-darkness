@@ -15,7 +15,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// #define DEBUG
+#define DEBUG
 
 #include <SDL.h>
 #undef main
@@ -105,6 +105,23 @@ void debug(int shader_handle)
 }
 #endif
 
+void separate(float *in, float *o1, float *o2)
+{
+    unsigned int d = *(int*)in, low_bytes = 65535, high_bytes = 65535<<16;
+    float *hif = (float*)&low_bytes, *lof = (float*)&high_bytes;
+    
+    unsigned int d1 = (d & low_bytes);
+    float *d1f = (float*)&d1;
+    
+    unsigned int d2 = (d & high_bytes) >> 16;
+    float *d2f = (float*)&d2;
+    
+    *o1 = d1;
+    *o2 = d2;
+    *o1 = 2.f**o1/(float)(low_bytes+1)-1.f;
+    *o2 = 2.f**o2/(float)(low_bytes+1)-1.f;
+}
+
 void render()
 {
     SDL_GL_MakeCurrent(window, gl_context);
@@ -169,16 +186,15 @@ void demo()
     glShaderSource(lb_handle, 1, (GLchar **)&load_frag, &lb_size);
     glCompileShader(lb_handle);
 #ifdef DEBUG
+    printf("Debug info for load.frag:");
     debug(lb_handle);
 #endif
     glAttachShader(lb_program, lb_handle);
     glLinkProgram(lb_program);
     glUseProgram(lb_program);
-    
     int lb_progress_location = glGetUniformLocation(lb_program, VAR_IPROGRESS),
         lb_time_location = glGetUniformLocation(lb_program, VAR_ITIME),
         lb_resolution_location = glGetUniformLocation(lb_program, VAR_IRESOLUTION);
-    
     glUniform1f(lb_time_location, 1.2);
     glUniform1f(lb_progress_location, 0.);
     glUniform2f(lb_resolution_location, w, h);
@@ -194,15 +210,30 @@ void demo()
     glShaderSource(gfx_handle, 1, (GLchar **)&load_frag, &gfx_size);
     glCompileShader(gfx_handle);
 #ifdef DEBUG
-    debug(lb_handle);
+    printf("Debug info for gfx.frag:");
+    debug(gfx_handle);
 #endif
     glAttachShader(gfx_program, gfx_handle);
     glLinkProgram(gfx_program);
+    int gfx_time_location =  glGetUniformLocation(gfx_program, VAR_ITIME),
+        gfx_resolution_location = glGetUniformLocation(gfx_program, VAR_IRESOLUTION);
     glUniform1f(lb_progress_location, .25);
+    
     render();
     
     // load sfx shader
-    
+#include "sfx.h"
+    int sfx_size = strlen(sfx_frag),
+        sfx_handle = glCreateShader(GL_FRAGMENT_SHADER),
+        sfx_program = glCreateProgram();
+    glShaderSource(sfx_handle, 1, (GLchar **)&sfx_frag, &sfx_size);
+    glCompileShader(sfx_handle);
+#ifdef DEBUG
+    printf("Debug info for sfx.frag:");
+    debug(sfx_handle);
+#endif
+    glAttachShader(sfx_program, sfx_handle);
+//     glLinkProgram(sfx_program); //TODO: Sound shader has array indexing in for loop; this crashes the linker. FIXME
     
     int running = 1;
     SDL_Event event;
@@ -222,6 +253,4 @@ void demo()
     }
     
     ExitProcess(0);
-    
-    return 0;
 }
