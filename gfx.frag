@@ -231,19 +231,19 @@ float gerst(vec2 x, int nwaves)
  */
 vec3 vor(vec2 x)
 {
-    //x = mod(x,pi);
+    //x = mod(x,2.*pi);
     vec2 y = floor(x);
    	float ret = 1.;
     
     //find closest control point. ("In which cell am I?")
     vec2 pf=c.yy, p;
-    float df=10., d;
+    float df=1000., d;
     
-    for(int i=-1; i<=1; i+=1)
-        for(int j=-1; j<=1; j+=1)
+    for(int i=-2; i<=2; i+=1)
+        for(int j=-2; j<=2; j+=1)
         {
             p = y + vec2(float(i), float(j));
-            p += rand(p);
+            p += rand(p+30.);
             
             d = length(x-p);
             
@@ -255,11 +255,11 @@ vec3 vor(vec2 x)
         }
     
     //compute voronoi distance: minimum distance to any edge
-    for(int i=-1; i<=1; i+=1)
-        for(int j=-1; j<=1; j+=1)
+    for(int i=-2; i<=2; i+=1)
+        for(int j=-2; j<=2; j+=1)
         {
             p = y + vec2(float(i), float(j));
-            p += rand(p);
+            p += rand(p+30.);
             
             vec2 o = p - pf;
             d = length(.5*o-dot(x-pf, o)/dot(o,o)*o);
@@ -322,24 +322,29 @@ vec2 scene4(vec3 x)
     float l = length(i);
     vec3
         dx = .25*vec3(rand(l*c.xx), rand(3.*l*c.xx), rand(6.*l*c.xx));
-    
+    /*
     vec2 sda = vec2(worm(c.yyy, vec3(.1*sin(5.*t+10.*rand(length(y-x)*c.xx)),0.,.1), .2*c.yyx, x-dx), 3.),
         sdb = vec2(length(x-dx)-(.036+.01*mod(t,T)/T),4.),
     	sdf = mix(sda,sdb, step(sdb.x,sda.x)),
         sdc = vec2(length(x-.2*c.yyx-dx)-(.036+.01*mod(t,T)/T),4.);
     sdf = mix(sdf, sdc, step(sdc.x, sdf.x));
+*/
+   vec2 sdf=c.xy,  sda;
+
+    float phi =3.*(abs(acos(min(y.z,y.x)/length(y.xz))));
+    vec3 vp = .3*vor(vec2(y.y,phi));//+.07*vor(2.*vec2(phi, y.y))-.04*vor(4.*vec2(phi,y.y));
+    //vec3 vp = .5*vor(y.xy+20.);
+    float v = vp.x;
+    vi = vp.yz;
+    sda = vec2(abs(length(y.xz)-3.)-v, 5.);
+    //sda = vec2(y.z+2.5-v, 5.);
+    sdf = mix(sdf, sda, step(sda.x, sdf.x));
     
+/*
     float guard = -length(max(abs(x)-.5,0.));
     guard = abs(guard)+1.*.1;
     sdf.x = min(sdf.x, guard);
-
-    float phi =acos(y.x/length(y.xz));
-    vec3 vp = .1*vor(vec2(phi, y.y));//+.07*vor(2.*vec2(phi, y.y))-.04*vor(4.*vec2(phi,y.y));
-    float v = vp.x;
-    vi = vp.yz;
-    sda = vec2(abs(length(y.xz)-1.-v), 5.);
-    sdf = mix(sdf, sda, step(sda.x, sdf.x));
-
+*/
     return sdf;
 }
 
@@ -403,17 +408,17 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
     float d = 0., vc = 0., cd = 0., ci=15.;
     int ni = 100;
     if(time > 20.) ci = 55.;
-    else if(time > 30.) 
+    if(time > 30.) 
     {
-        ci = 100.;
-        ni = 1500;
+        ci = 50.;
+        ni = 800;
     }
     else if(time > 40.) ci = 200.;
     for(int i=0; i<ni; ++i)
     {
         x = o + d * rd;
         s = scene(x);
-        if(s.x<5.e-4)break;
+        if(s.x<5.e-3)break;
         if((d>ci) || (i==ni-1))
         {
             //fragColor = vec4(mix(bg(uv),c.xxx,vc/cd), 1.);
@@ -449,15 +454,17 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
     }
     else if(s.y == 5.)//worm tunnel
     {
-        l = x;
-        col = .6-vec3(rand(vi),rand(2.*vi),rand(3.*vi))*dot(l,n)*mod(t,T)/T+.8*c.xxx*dot(l,n)+.2*c.xxx*pow(abs(dot(re,v)), 4.)+(.05*c.xyy+.05*c.yxy)*pow(abs(dot(re,v)), 2.);
+        l = normalize(x);
+        re = normalize(reflect(-l,n));
+        v = normalize(x-o);
+        col = .6-(.8*c.yyx+.3*c.xyy)*rand(vi)*dot(l,n)*mod(t,T)/T+.8*c.xxx*dot(l,n)+.2*c.xxx*pow(abs(dot(re,v)), 4.)+(.05*c.xyy+.05*c.yxy)*pow(abs(dot(re,v)), 2.);
     }
     else col = c.yyy;
     
     //fog
     if(time < 20.)
 	    col = mix(col, .15*c.xxx, cosh(-2.e-0*x.z)*tanh(1.09e-1*x.y));
-    else 
+    else if(time < 40.)
         col = mix(col, c.xxx, tanh(1.e-1*x.y));
     fragColor = vec4(col,1.0);
 }
@@ -483,11 +490,14 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 col = fragColor.xyz;
     
     //banner for text
-    s = z10presents(uv);
-    float sc = step(s.x, 0.) ; //objects
-    if(s.y == 1.)
-        col = mix(col, mix(col, c.xxx, .1), sc);
-    
+    if(iTime < 30.)
+    {
+        s = z10presents(uv);
+        float sc = step(s.x, 0.) ; //objects
+        if(s.y == 1.)
+            col = mix(col, mix(col, c.xxx, .1), sc);
+     }
+
     //lens effect
     vec2 u = uv+(.01*iTime-.12)*c.yx;
     float ph = atan(abs(u.y/u.x)), ra = length(u);
