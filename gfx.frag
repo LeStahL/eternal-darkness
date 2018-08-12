@@ -457,7 +457,7 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
         l = normalize(x);
         re = normalize(reflect(-l,n));
         v = normalize(x-o);
-        col = .6-(.8*c.yyx+.3*c.xyy)*rand(vi)*dot(l,n)*mod(t,T)/T+.8*c.xxx*dot(l,n)+.2*c.xxx*pow(abs(dot(re,v)), 4.)+(.05*c.xyy+.05*c.yxy)*pow(abs(dot(re,v)), 2.);
+        col = .6+.3*vec3(.75+.1*rand(vi),.75+.1*rand(2.*vi), .6+.4*rand(5.*vi))*dot(l,n)*mod(t,T)/T+.8*c.xxx*dot(l,n)+.05*c.xxx*pow(abs(dot(re,v)), 2.);
     }
     else col = c.yyy;
     
