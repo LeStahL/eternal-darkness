@@ -3,3 +3,6 @@
 *.kate-swp
 *.bat
 build
+*.kdev4
+*.sfd
+
