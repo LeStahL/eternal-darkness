@@ -1,20 +1,4 @@
-/* Eternal Darkness by Team210
- * Copyright (C) 2018  Alexander Kraus <nr4@z10.info>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
- 
+
 #version 130
 
 uniform float iTime;
@@ -23,7 +7,9 @@ uniform vec2 iResolution;
 const float pi = acos(-1.);
 const vec3 c = vec3(1., 0., -1.);
 
+vec2 vi;
 float t;
+#define T .5
 
 float rand(vec2 a0)
 {
@@ -67,6 +53,42 @@ float dsp(vec2 p0, vec2 p1, vec2 p2, vec2 x)
         min(
             dist(p0,p1,p2,x,t.y),
             dist(p0,p1,p2,x,t.z)
+        )
+    );
+}
+
+//distance to 3d spline with parameter t
+float dist(vec3 p0,vec3 p1,vec3 p2,vec3 x,float t)
+{
+    t = clamp(t, 0., 1.);
+    return length(x-pow(1.-t,2.)*p0-2.*(1.-t)*t*p1-t*t*p2);
+}
+
+//minimum distance to worm
+float worm(vec3 p0, vec3 p1, vec3 p2, vec3 x)
+{
+    //coefficients for 0 = t^3 + a * t^2 + b * t + c
+    vec3 E = x-p0, F = p2-2.*p1+p0, G = p1-p0,
+    	ai = vec3(3.*dot(G,F), 2.*dot(G,G)-dot(E,F), -dot(E,G))/dot(F,F);
+
+	//discriminant and helpers
+    float tau = ai.x/3., p = ai.y-tau*ai.x, q = - tau*(tau*tau+p)+ai.z, dis = q*q/4.+p*p*p/27.;
+    
+    //triple real root
+    if(dis > 0.) 
+    {
+        vec2 ki = -.5*q*c.xx+sqrt(dis)*c.xz, ui = sign(ki)*pow(abs(ki), c.xx/3.);
+        return dist(p0,p1,p2,x,ui.x+ui.y-tau)-(.03+.01*mod(t,T)/T-.005*cos(1.7*pi*(ui.x+ui.y-tau))+.01*abs(sin(2.*pi*10.*(ui.x+ui.y-tau))));
+    }
+    
+    //three distinct real roots
+    float fac = sqrt(-4./3.*p), arg = acos(-.5*q*sqrt(-27./p/p/p))/3.;
+    vec3 t = c.zxz*fac*cos(arg*c.xxx+c*pi/3.)-tau;
+    return min(
+        dist(p0,p1,p2,x, t.x)-(.03+.01*mod(iTime,T)/T-.005*cos(1.7*pi*t.x)+.01*abs(sin(2.*pi*10.*t.x))),
+        min(
+            dist(p0,p1,p2,x,t.y)-(.03+.01*mod(iTime,T)/T-.005*cos(1.7*pi*t.y)+.01*abs(sin(2.*pi*10.*t.y))),
+            dist(p0,p1,p2,x,t.z)-(.03+.01*mod(iTime,T)/T-.005*cos(1.7*pi*t.z)+.01*abs(sin(2.*pi*10.*t.z)))
         )
     );
 }
@@ -203,6 +225,50 @@ float gerst(vec2 x, int nwaves)
     return val;
 }
 
+/* compute voronoi distance and closest point.
+ * x: coordinate
+ * return value: vec3(distance, coordinate of control point)
+ */
+vec3 vor(vec2 x)
+{
+    //x = mod(x,pi);
+    vec2 y = floor(x);
+   	float ret = 1.;
+    
+    //find closest control point. ("In which cell am I?")
+    vec2 pf=c.yy, p;
+    float df=10., d;
+    
+    for(int i=-1; i<=1; i+=1)
+        for(int j=-1; j<=1; j+=1)
+        {
+            p = y + vec2(float(i), float(j));
+            p += rand(p);
+            
+            d = length(x-p);
+            
+            if(d < df)
+            {
+                df = d;
+                pf = p;
+            }
+        }
+    
+    //compute voronoi distance: minimum distance to any edge
+    for(int i=-1; i<=1; i+=1)
+        for(int j=-1; j<=1; j+=1)
+        {
+            p = y + vec2(float(i), float(j));
+            p += rand(p);
+            
+            vec2 o = p - pf;
+            d = length(.5*o-dot(x-pf, o)/dot(o,o)*o);
+            ret = min(ret, d);
+        }
+    
+    return vec3(ret, pf);
+}
+
 //returns vec2(sdf, material)
 vec2 z10presents(vec2 x)
 {
@@ -243,11 +309,46 @@ vec2 scene3(vec3 x)
     return mix(sdb, sda, step(sda.x, sdb.x));
 }
 
+//worm scene
+vec2 scene4(vec3 x)
+{
+    vec3 x0 = x;
+    x += 1.e0*t*c.yxy;
+    
+    vec3 y = x;
+    x = mod(x,1.)-.5;
+    
+    vec3 i = y-x;
+    float l = length(i);
+    vec3
+        dx = .25*vec3(rand(l*c.xx), rand(3.*l*c.xx), rand(6.*l*c.xx));
+    
+    vec2 sda = vec2(worm(c.yyy, vec3(.1*sin(5.*t+10.*rand(length(y-x)*c.xx)),0.,.1), .2*c.yyx, x-dx), 3.),
+        sdb = vec2(length(x-dx)-(.036+.01*mod(t,T)/T),4.),
+    	sdf = mix(sda,sdb, step(sdb.x,sda.x)),
+        sdc = vec2(length(x-.2*c.yyx-dx)-(.036+.01*mod(t,T)/T),4.);
+    sdf = mix(sdf, sdc, step(sdc.x, sdf.x));
+    
+    float guard = -length(max(abs(x)-.5,0.));
+    guard = abs(guard)+1.*.1;
+    sdf.x = min(sdf.x, guard);
+
+    float phi =acos(y.x/length(y.xz));
+    vec3 vp = .1*vor(vec2(phi, y.y));//+.07*vor(2.*vec2(phi, y.y))-.04*vor(4.*vec2(phi,y.y));
+    float v = vp.x;
+    vi = vp.yz;
+    sda = vec2(abs(length(y.xz)-1.-v), 5.);
+    sdf = mix(sdf, sda, step(sda.x, sdf.x));
+
+    return sdf;
+}
+
 vec2 scene(vec3 x)
 {
     if(t < 20.) return scene1(x);//TODO: direction
     else if(t < 30.) return scene2(x);
-    else if(t < 7000.) return scene3(x);
+    else if(t < 40.) return scene3(x);
+    else if(t < 7000.) return scene4(x);
 }
 
 const float dx = 1.e-4;
@@ -293,16 +394,27 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
     vec2 s;
     vec3 x, o = .5+.5*mfsmoothstep_noise2d(c.yy, .9, 1., .1)-c.yxy+.5*c.yyx, ta = .25*c.yyx, r = c.xyy, u = c.yyx, 
         rt = ta + r * uv.x + u * uv.y, rd = normalize(rt-o);
-    
+    if(t>40.)
+    {
+        o = -c.yxy;
+        ta=c.yyy;
+    }
     //raymarching
     float d = 0., vc = 0., cd = 0., ci=15.;
+    int ni = 100;
     if(time > 20.) ci = 55.;
-    for(int i=0; i<100; ++i)
+    else if(time > 30.) 
+    {
+        ci = 100.;
+        ni = 1500;
+    }
+    else if(time > 40.) ci = 200.;
+    for(int i=0; i<ni; ++i)
     {
         x = o + d * rd;
         s = scene(x);
         if(s.x<5.e-4)break;
-        if((d>ci) || (i==99))
+        if((d>ci) || (i==ni-1))
         {
             //fragColor = vec4(mix(bg(uv),c.xxx,vc/cd), 1.);
             fragColor = vec4(bg(uv), 1.);
@@ -327,6 +439,19 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
     {
         col = .4*c.xxx*dot(l2,n)+.2*c.xxx*pow(abs(dot(re2,v)), 2.);
     }
+    else if(s.y == 3.)//worm body
+    {
+        col = .6-(.8*c.yyx+.3*c.xyy)*dot(l,n)*mod(t,T)/T+.8*c.xxx*dot(l,n)+.2*c.xxx*pow(abs(dot(re,v)), 4.)+(.05*c.xyy+.05*c.yxy)*pow(abs(dot(re,v)), 2.);
+    }
+    else if(s.y == 4.)//worm ends
+    {
+        col = 1.+.8*c.xxx*dot(l,n)+.2*c.xxx*pow(abs(dot(re,v)), 4.)+(.05*c.yyx+.05*c.yyx)*pow(abs(dot(re,v)), 2.);
+    }
+    else if(s.y == 5.)//worm tunnel
+    {
+        l = x;
+        col = .6-vec3(rand(vi),rand(2.*vi),rand(3.*vi))*dot(l,n)*mod(t,T)/T+.8*c.xxx*dot(l,n)+.2*c.xxx*pow(abs(dot(re,v)), 4.)+(.05*c.xyy+.05*c.yxy)*pow(abs(dot(re,v)), 2.);
+    }
     else col = c.yyy;
     
     //fog
@@ -344,10 +469,17 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     vec4 dt1, dt2, dt3;
     fore(dt1, uv, iTime);
-    fore(dt2, uv, iTime+1.e-2);
-    //fore(dt3, uv, iTime+2.e-2);
-    fragColor = .333*(dt1+dt2);
-    
+    if(iTime < 50.)
+    {
+        fore(dt2, uv, iTime+1.e-2);
+        //fore(dt3, uv, iTime+2.e-2);
+        fragColor = .333*(dt1+dt2);
+    }
+    else
+    {
+        fragColor = dt1;
+    }
+
     vec3 col = fragColor.xyz;
     
     //banner for text
@@ -362,6 +494,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     col += 1.4*(.5+.25*sin(2.3*pi*ph)+.25*sin(4.*pi*ph)+.25*sin(1.5*pi*ph))*exp(-3.*ra)*c.xxx*exp(-9.e-1*t)*(1.-smoothstep(1.4,1.6,iTime));
     
     //text
+    /*
     float d = 1.;
     if(iTime < 8.)
     {
@@ -410,12 +543,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         for(int i=0; i<88;++i) d=min(d,dsg(lin[2*i], lin[2*i+1], uv));
         for(int i=0; i<68; ++i) d=min(d,dsp(quad[3*i], quad[3*i+1], quad[3*i+2], uv));
 		col = mix(col, .8*c.xxx, B(30.)*smoothstep(.005, .002, d ));
-    }    
+    }   
+*/
     
     fragColor = vec4(col,1.0);
-}
-
-void main()
+}void main()
 {
     mainImage(gl_FragColor, gl_FragCoord.xy);
 }
