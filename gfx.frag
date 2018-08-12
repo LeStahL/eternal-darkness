@@ -413,7 +413,11 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
         ci = 50.;
         ni = 200;
     }
-    else if(time > 40.) ci = 200.;
+    if(time > 40.) 
+    {
+        ni = 200;
+        ci = 40.;
+    }
     for(int i=0; i<ni; ++i)
     {
         x = o + d * rd;
