@@ -231,7 +231,7 @@ float gerst(vec2 x, int nwaves)
  */
 vec3 vor(vec2 x)
 {
-    //x = mod(x,2.*pi);
+    x += 12.;// mod(x,6.*2.*pi);
     vec2 y = floor(x);
    	float ret = 1.;
     
@@ -322,17 +322,17 @@ vec2 scene4(vec3 x)
     float l = length(i);
     vec3
         dx = .25*vec3(rand(l*c.xx), rand(3.*l*c.xx), rand(6.*l*c.xx));
-    /*
+    
     vec2 sda = vec2(worm(c.yyy, vec3(.1*sin(5.*t+10.*rand(length(y-x)*c.xx)),0.,.1), .2*c.yyx, x-dx), 3.),
         sdb = vec2(length(x-dx)-(.036+.01*mod(t,T)/T),4.),
     	sdf = mix(sda,sdb, step(sdb.x,sda.x)),
         sdc = vec2(length(x-.2*c.yyx-dx)-(.036+.01*mod(t,T)/T),4.);
     sdf = mix(sdf, sdc, step(sdc.x, sdf.x));
-*/
-   vec2 sdf=c.xy,  sda;
 
-    float phi =3.*(abs(acos(min(y.z,y.x)/length(y.xz))));
-    vec3 vp = .3*vor(vec2(y.y,phi));//+.07*vor(2.*vec2(phi, y.y))-.04*vor(4.*vec2(phi,y.y));
+   //vec2 sdf=c.xy,  sda;
+
+    float phi =3.*acos(min(y.z,y.x)/length(y.xz));
+    vec3 vp = .5*vor(vec2(y.y,phi))+.1*vor(2.*vec2(phi, y.y))-.02*vor(5.*vec2(phi,y.y));
     //vec3 vp = .5*vor(y.xy+20.);
     float v = vp.x;
     vi = vp.yz;
@@ -340,11 +340,11 @@ vec2 scene4(vec3 x)
     //sda = vec2(y.z+2.5-v, 5.);
     sdf = mix(sdf, sda, step(sda.x, sdf.x));
     
-/*
+
     float guard = -length(max(abs(x)-.5,0.));
     guard = abs(guard)+1.*.1;
     sdf.x = min(sdf.x, guard);
-*/
+
     return sdf;
 }
 
@@ -411,7 +411,7 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
     if(time > 30.) 
     {
         ci = 50.;
-        ni = 800;
+        ni = 200;
     }
     else if(time > 40.) ci = 200.;
     for(int i=0; i<ni; ++i)
@@ -466,6 +466,8 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
 	    col = mix(col, .15*c.xxx, cosh(-2.e-0*x.z)*tanh(1.09e-1*x.y));
     else if(time < 40.)
         col = mix(col, c.xxx, tanh(1.e-1*x.y));
+    else if(time < 7000.)
+        col = mix(col, c.xxx, tanh(8.e-2*x.y));
     fragColor = vec4(col,1.0);
 }
 
