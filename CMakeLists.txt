@@ -19,9 +19,10 @@ cmake_minimum_required(VERSION 2.8)
 project(eternal-darkness)
 
 include_directories("C:\\Users\\NR4\\Downloads\\SDL2-devel-2.0.8-VC\\SDL2-2.0.8\\include")
-add_definitions(/Gy /O1 /fp:fast /GR- /QIfist)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /subsystem:windows /NODEFAULTLIB /OPT:REF /ENTRY:demo /OPT:ICF=10 /VERBOSE")
+# STRING (REGEX REPLACE "/RTC(su|[1su])" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+add_definitions(/Gy /O1 /fp:fast /GR- /GS-)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ENTRY:demo /SUBSYSTEM:Windows  /OPT:REF  /OPT:ICF=10 /VERBOSE /NODEFAULTLIB") # /ENTRY:demo /NODEFAULTLIB
 add_executable(etd etd.c)
 
 # TODO: remove ucrt.lib if DEBUG is undefined in-source
-target_link_libraries(etd "C:\\Users\\NR4\\Downloads\\SDL2-2.0.8\\SDL2-2.0.8\\build\\Release\\SDL2-static.lib" version.lib imm32.lib winmm.lib  opengl32.lib libcmt.lib ucrt.lib)
+target_link_libraries(etd opengl32.lib) #ucrt.lib  libcmt.lib version.lib imm32.lib winmm.lib
