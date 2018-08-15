@@ -22,8 +22,12 @@ int _fltused = 0;
 #include <windows.h>
 
 #include <GL/gl.h>
+#include "glext.h"
 
-// Standard library und CRT rewrite for saving executable size
+//TODO: remove
+#include <stdio.h>
+
+// Standard library and CRT rewrite for saving executable size
 void *memset(void *ptr, int value, size_t num)
 {
     for(int i=num-1; i>=0; i--)
@@ -31,68 +35,107 @@ void *memset(void *ptr, int value, size_t num)
     return ptr;
 }
 
-HGLRC glrc;
-HDC hdc;
+size_t strlen(const char *str)
+{
+    int len = 0;
+    while(str[len] != '\0') ++len;
+    return len;
+}
+
+// Windows globals
+// HGLRC glrc;
+// HDC hdc;
+
+// OpenGL extensions
+typedef void (*glGetShaderiv_t)(GLuint,  GLenum,  GLint *);
+glGetShaderiv_t glGetShaderiv;
+typedef void (*glGetShaderInfoLog_t)(GLuint,  GLsizei, GLsizei,  GLchar *);
+glGetShaderInfoLog_t glGetShaderInfoLog;
+typedef GLuint (*glCreateShader_t)(GLenum);
+glCreateShader_t glCreateShader;
+typedef GLuint (*glCreateProgram_t)();
+glCreateProgram_t glCreateProgram;
+typedef void (*glShaderSource_t)(GLuint, GLsizei, GLchar **, GLint *);
+glShaderSource_t glShaderSource;
+typedef void (*glCompileShader_t)(GLuint);
+glCompileShader_t glCompileShader;
+typedef void (*glAttachShader_t)(GLuint, GLuint);
+glAttachShader_t glAttachShader;
+typedef void (*glLinkProgram_t)(GLuint);
+glLinkProgram_t glLinkProgram;
+typedef void (*glUseProgram_t)(GLuint);
+glUseProgram_t glUseProgram;
+typedef GLint (*glGetUniformLocation_t)(GLuint, const GLchar *);
+glGetUniformLocation_t glGetUniformLocation;
+typedef void (*glUniform2f_t)(GLint, GLfloat, GLfloat);
+glUniform2f_t glUniform2f;
+typedef void (*glUniform1f_t)(GLint, GLfloat);
+glUniform1f_t glUniform1f;
+typedef void (*glGenFramebuffers_t)(GLsizei, GLuint*);
+glGenFramebuffers_t glGenFramebuffers;
+typedef void (*glBindFramebuffer_t)(GLenum, GLuint);
+glBindFramebuffer_t glBindFramebuffer;
+typedef void (*glFramebufferTexture2D_t)(GLenum, GLenum, GLenum, GLuint, GLint);
+glFramebufferTexture2D_t glFramebufferTexture2D;
+typedef void (*glBlitFramebuffer_t)(GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum);
+glBlitFramebuffer_t glBlitFramebuffer;
+typedef void (*glNamedRenderbufferStorage_t) (GLuint, GLenum, GLsizei, GLsizei);
+glNamedRenderbufferStorage_t glNamedRenderbufferStorage;
+
+// Shader globals
+int lb_program, lb_progress_location, lb_resolution_location, lb_time_location;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    switch (uMsg)
-    {
-        case WM_KEYDOWN: 
-        case VK_ESCAPE:
-            ExitProcess(0);
-            return 0;
-            break;
-            
-        case WM_TIMER:
-            glClearColor(0.,0.,0.,1.);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            
-            glLoadIdentity();
-            
-            glColor3f( 1.0, 1., 0.0);
-            glPolygonMode(GL_FRONT, GL_FILL);
-            
-            glBegin(GL_TRIANGLES);
-            glVertex3f(-1.,-1.,0.);
-            glVertex3f(-1.,1.,0.);
-            glVertex3f(1.,1.,0.);
-            
-            glVertex3f(1.,1.,0.);
-            glVertex3f(1.,-1.,0.);
-            glVertex3f(-1.,-1.,0.);
-            glEnd();
-            
-            glFlush();
-            
-            SwapBuffers(hdc);
-            
-            wglMakeCurrent (hdc, glrc);
-            
-            break;
-    }
+    printf("wndproc, msg=%d\n", uMsg);
+    
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+//TODO: remove
+void debug(int shader_handle)
+{
+    printf("Debugging information for shader handle %d:\n", shader_handle);
+    int compile_status = 0;
+    glGetShaderiv(shader_handle, GL_COMPILE_STATUS, &compile_status);
+    if(compile_status != GL_TRUE)
+    {
+        printf("FAILED.\n");
+        int len = 12;
+        glGetShaderiv(shader_handle, GL_INFO_LOG_LENGTH, &len);
+        printf("log length: %d\n", len);
+        GLchar *CompileLog = (GLchar *)malloc(len*sizeof(GLchar));
+        glGetShaderInfoLog(shader_handle, len, NULL, CompileLog);
+        printf("error: %s\n", CompileLog);
+        free(CompileLog);
+    } 
 }
 
 int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
+    // TODO: remove 
+    AllocConsole();
+    freopen("CONIN$", "r", stdin);
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+    
     CHAR WindowClass[]  = "Team210 Demo Window";
     
     WNDCLASSEX wc = { 0 };
     wc.cbSize = sizeof(wc);
-    wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+    wc.style = CS_OWNDC | CS_VREDRAW | CS_HREDRAW;
     wc.lpfnWndProc = &WindowProc;
     wc.cbClsExtra = 0;
     wc.cbWndExtra = 0;
     wc.hInstance = hInstance;
-    wc.hIcon = NULL; 
-    wc.hCursor = NULL;
+    wc.hIcon = LoadIcon(NULL, IDI_WINLOGO); 
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = NULL;
     wc.lpszMenuName = NULL;
     wc.lpszClassName = WindowClass;
     wc.hIconSm = NULL;
     
-    RegisterClassEx(&wc);
+    printf("register class: %d\n", RegisterClassEx(&wc));
     
     // Get full screen information
     HMONITOR hmon = MonitorFromWindow(0, MONITOR_DEFAULTTONEAREST);
@@ -103,7 +146,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     HWND hwnd = CreateWindowEx(
         0,                                                          // Optional window styles.
         WindowClass,                                                // Window class
-        "Learn to Program Windows",                                 // Window text
+        ":: NR4^QM/Team210 :: GO - MAKE A DEMO ::",                                 // Window text
         WS_POPUP | WS_VISIBLE,                                      // Window style
         mi.rcMonitor.left,
         mi.rcMonitor.top,
@@ -115,6 +158,10 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
         hInstance,                                                  // Instance handle
         0                                                           // Additional application data
     );
+    
+    // Show it
+    ShowWindow(hwnd, TRUE);
+    UpdateWindow(hwnd);
     
     // Create OpenGL context
     PIXELFORMATDESCRIPTOR pfd =
@@ -137,26 +184,114 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
         0, 0, 0
     };
     
-    hdc = GetDC(hwnd);
+    HDC hdc = GetDC(hwnd);
     
     int  pf = ChoosePixelFormat(hdc, &pfd); 
     SetPixelFormat(hdc, pf, &pfd);
     
-    glrc = wglCreateContext(hdc);
+    HGLRC glrc = wglCreateContext(hdc);
     wglMakeCurrent (hdc, glrc);
     
-    // Show it
-    ShowWindow(hwnd, TRUE);
-    UpdateWindow(hwnd);
+    // OpenGL extensions
+    glGetShaderiv = (glGetShaderiv_t) wglGetProcAddress("glGetShaderiv");
+    glGetShaderInfoLog = (glGetShaderInfoLog_t) wglGetProcAddress("glGetShaderInfoLog");
+    glCreateShader = (glCreateShader_t) wglGetProcAddress("glCreateShader");
+    glCreateProgram = (glCreateProgram_t) wglGetProcAddress("glCreateProgram");
+    glShaderSource = (glShaderSource_t) wglGetProcAddress("glShaderSource");
+    glCompileShader = (glCompileShader_t) wglGetProcAddress("glCompileShader");
+    glAttachShader = (glAttachShader_t) wglGetProcAddress("glAttachShader");
+    glLinkProgram = (glLinkProgram_t) wglGetProcAddress("glLinkProgram");
+    glUseProgram = (glUseProgram_t) wglGetProcAddress("glUseProgram");
+    glGetUniformLocation = (glGetUniformLocation_t) wglGetProcAddress("glGetUniformLocation");
+    glUniform2f = (glUniform2f_t) wglGetProcAddress("glUniform2f");
+    glUniform1f = (glUniform1f_t) wglGetProcAddress("glUniform1f");
+    glGenFramebuffers = (glGenFramebuffers_t) wglGetProcAddress("glGenFramebuffers");
+    glBindFramebuffer = (glBindFramebuffer_t) wglGetProcAddress("glBindFramebuffer");
+    glFramebufferTexture2D = (glFramebufferTexture2D_t) wglGetProcAddress("glFramebufferTexture2D");
+    glBlitFramebuffer = (glBlitFramebuffer_t) wglGetProcAddress("glBlitFramebuffer");
+    glNamedRenderbufferStorage = (glNamedRenderbufferStorage_t) wglGetProcAddress("glNamedRenderbufferStorage");
     
-    // Add timer for regular rendering
-    setTimer(hwnd, IDT_TIMER1, 1000./60., (TIMERPROC)NULL );
-    
+    // TODO: add a way of configuring this in the future.
+    int w = 1920, h = 1080;
+    // Init loading bar.
+    #include "load.h"
+    int lb_size = strlen(load_frag);
+    printf("lb size is: %d\n", lb_size);
+    int lb_handle = glCreateShader(GL_FRAGMENT_SHADER);
+    printf("lb handle is: %d\n", lb_handle);
+    lb_program = glCreateProgram();
+    printf("lb program handle is: %d\n", lb_program);
+    glShaderSource(lb_handle, 1, (GLchar **)&load_frag, &lb_size);
+    glCompileShader(lb_handle);
+    //     debug(lb_handle);
+    glAttachShader(lb_program, lb_handle);
+    printf("shader attached to program.\n");
+    glLinkProgram(lb_program);
+    printf("linked program.\n");
+    glUseProgram(lb_program);
+    printf("used program.\n");
+    lb_progress_location = glGetUniformLocation(lb_program, VAR_IPROGRESS);
+    lb_time_location = glGetUniformLocation(lb_program, VAR_ITIME);
+    lb_resolution_location = glGetUniformLocation(lb_program, VAR_IRESOLUTION);
+    printf("have uniform locations:\n -> progress: %d\n -> time: %d\n --> resolution: %d\n", lb_progress_location, lb_time_location, lb_resolution_location);
+    glUniform1f(lb_time_location, 1.2);
+    glUniform1f(lb_progress_location, 0.);
+    glUniform2f(lb_resolution_location, w, h);
+    printf("set uniform values\n");
+    printf("FINISHED WM_CREATE\n");
+    UINT_PTR t = SetTimer(hwnd, 1, 1000, NULL);
+  
+    // Main loop
     MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0) != 0)
+    while(GetMessage(&msg, hwnd, 0, 0) > 0 )
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
+        
+        UINT m = msg.message;
+        printf("msg: %d\n",m);
+        printf("keydown: %d\n", WM_KEYDOWN);
+        switch(m)
+        {
+            case WM_KEYDOWN:
+                ExitProcess(0);
+                break;
+                
+            case WM_TIMER:
+                //HDC hdc = GetDC(hwnd);
+                printf("WM_TIMER\n");
+                printf("rendering.\n");
+                
+                glUseProgram(lb_program);
+                printf("used program.\n");
+                //             
+                glClearColor(0.,0.,0.,1.);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                printf("cleared.\n");
+                glLoadIdentity();
+                
+                glColor3f( 1.0, 1., 0.0);
+                glPolygonMode(GL_FRONT, GL_FILL);
+                printf("starting to draw.\n");
+                glBegin(GL_TRIANGLES);
+                printf("began GL\n");
+                glVertex3f(-1.,-1.,0.);
+                glVertex3f(-1.,1.,0.);
+                glVertex3f(1.,1.,0.);
+                printf("first triangle\n");
+                glVertex3f(1.,1.,0.);
+                glVertex3f(1.,-1.,0.);
+                glVertex3f(-1.,-1.,0.);
+                glEnd();
+                printf("now finsihed drawig vertices\n");
+                glFlush();
+                
+                SwapBuffers(hdc);
+                printf("making current.\n");
+                //                         wglMakeCurrent (hdc, glrc);
+                printf("rendering done.\n");
+        }
+        
     }
     
     return 0;

@@ -25,4 +25,4 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ENTRY:demo /SUBSYSTEM:Win
 add_executable(etd etd.c)
 
 # TODO: remove ucrt.lib if DEBUG is undefined in-source
-target_link_libraries(etd opengl32.lib) #ucrt.lib  libcmt.lib version.lib imm32.lib winmm.lib
+target_link_libraries(etd opengl32.lib ucrt.lib User32.lib) #ucrt.lib  libcmt.lib version.lib imm32.lib winmm.lib
