@@ -42,53 +42,66 @@ size_t strlen(const char *str)
     return len;
 }
 
-// Windows globals
-// HGLRC glrc;
-// HDC hdc;
-
 // OpenGL extensions
-typedef void (*glGetShaderiv_t)(GLuint,  GLenum,  GLint *);
-glGetShaderiv_t glGetShaderiv;
-typedef void (*glGetShaderInfoLog_t)(GLuint,  GLsizei, GLsizei,  GLchar *);
-glGetShaderInfoLog_t glGetShaderInfoLog;
-typedef GLuint (*glCreateShader_t)(GLenum);
-glCreateShader_t glCreateShader;
-typedef GLuint (*glCreateProgram_t)();
-glCreateProgram_t glCreateProgram;
-typedef void (*glShaderSource_t)(GLuint, GLsizei, GLchar **, GLint *);
-glShaderSource_t glShaderSource;
-typedef void (*glCompileShader_t)(GLuint);
-glCompileShader_t glCompileShader;
-typedef void (*glAttachShader_t)(GLuint, GLuint);
-glAttachShader_t glAttachShader;
-typedef void (*glLinkProgram_t)(GLuint);
-glLinkProgram_t glLinkProgram;
-typedef void (*glUseProgram_t)(GLuint);
-glUseProgram_t glUseProgram;
-typedef GLint (*glGetUniformLocation_t)(GLuint, const GLchar *);
-glGetUniformLocation_t glGetUniformLocation;
-typedef void (*glUniform2f_t)(GLint, GLfloat, GLfloat);
-glUniform2f_t glUniform2f;
-typedef void (*glUniform1f_t)(GLint, GLfloat);
-glUniform1f_t glUniform1f;
-typedef void (*glGenFramebuffers_t)(GLsizei, GLuint*);
-glGenFramebuffers_t glGenFramebuffers;
-typedef void (*glBindFramebuffer_t)(GLenum, GLuint);
-glBindFramebuffer_t glBindFramebuffer;
-typedef void (*glFramebufferTexture2D_t)(GLenum, GLenum, GLenum, GLuint, GLint);
-glFramebufferTexture2D_t glFramebufferTexture2D;
-typedef void (*glBlitFramebuffer_t)(GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum);
-glBlitFramebuffer_t glBlitFramebuffer;
-typedef void (*glNamedRenderbufferStorage_t) (GLuint, GLenum, GLsizei, GLsizei);
-glNamedRenderbufferStorage_t glNamedRenderbufferStorage;
+PFNGLGETSHADERIVPROC glGetShaderiv;
+PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
+PFNGLCREATESHADERPROC glCreateShader;
+PFNGLCREATEPROGRAMPROC glCreateProgram;
+PFNGLSHADERSOURCEPROC glShaderSource;
+PFNGLCOMPILESHADERPROC glCompileShader;
+PFNGLATTACHSHADERPROC glAttachShader;
+PFNGLLINKPROGRAMPROC glLinkProgram;
+PFNGLUSEPROGRAMPROC glUseProgram;
+PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+PFNGLUNIFORM2FPROC glUniform2f;
+PFNGLUNIFORM1FPROC glUniform1f;
+PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
+PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
+PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D;
+// glBlitFramebuffer_t glBlitFramebuffer;
+PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC glNamedRenderbufferStorageEXT;
 
 // Shader globals
 int lb_program, lb_progress_location, lb_resolution_location, lb_time_location;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    printf("wndproc, msg=%d\n", uMsg);
-    
+    switch(uMsg)
+    {
+        case WM_KEYDOWN:
+            ExitProcess(0);
+            break;
+            
+        case WM_TIMER:
+            HDC hdc = GetDC(hwnd);
+            
+            glUseProgram(lb_program);
+
+            glClearColor(0.,0.,0.,1.);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glLoadIdentity();
+            glColor3f( 1.0, 1., 0.0);
+            glPolygonMode(GL_FRONT, GL_FILL);
+
+            glBegin(GL_TRIANGLES);
+
+            glVertex3f(-1.,-1.,0.);
+            glVertex3f(-1.,1.,0.);
+            glVertex3f(1.,1.,0.);
+
+            glVertex3f(1.,1.,0.);
+            glVertex3f(1.,-1.,0.);
+            glVertex3f(-1.,-1.,0.);
+
+            glEnd();
+
+            glFlush();
+            
+            SwapBuffers(hdc);
+            break;
+            
+    }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
@@ -193,108 +206,56 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     wglMakeCurrent (hdc, glrc);
     
     // OpenGL extensions
-    glGetShaderiv = (glGetShaderiv_t) wglGetProcAddress("glGetShaderiv");
-    glGetShaderInfoLog = (glGetShaderInfoLog_t) wglGetProcAddress("glGetShaderInfoLog");
-    glCreateShader = (glCreateShader_t) wglGetProcAddress("glCreateShader");
-    glCreateProgram = (glCreateProgram_t) wglGetProcAddress("glCreateProgram");
-    glShaderSource = (glShaderSource_t) wglGetProcAddress("glShaderSource");
-    glCompileShader = (glCompileShader_t) wglGetProcAddress("glCompileShader");
-    glAttachShader = (glAttachShader_t) wglGetProcAddress("glAttachShader");
-    glLinkProgram = (glLinkProgram_t) wglGetProcAddress("glLinkProgram");
-    glUseProgram = (glUseProgram_t) wglGetProcAddress("glUseProgram");
-    glGetUniformLocation = (glGetUniformLocation_t) wglGetProcAddress("glGetUniformLocation");
-    glUniform2f = (glUniform2f_t) wglGetProcAddress("glUniform2f");
-    glUniform1f = (glUniform1f_t) wglGetProcAddress("glUniform1f");
-    glGenFramebuffers = (glGenFramebuffers_t) wglGetProcAddress("glGenFramebuffers");
-    glBindFramebuffer = (glBindFramebuffer_t) wglGetProcAddress("glBindFramebuffer");
-    glFramebufferTexture2D = (glFramebufferTexture2D_t) wglGetProcAddress("glFramebufferTexture2D");
-    glBlitFramebuffer = (glBlitFramebuffer_t) wglGetProcAddress("glBlitFramebuffer");
-    glNamedRenderbufferStorage = (glNamedRenderbufferStorage_t) wglGetProcAddress("glNamedRenderbufferStorage");
+    glGetShaderiv = (PFNGLGETSHADERIVPROC) wglGetProcAddress("glGetShaderiv");
+    glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC) wglGetProcAddress("glGetShaderInfoLog");
+    glCreateShader = (PFNGLCREATESHADERPROC) wglGetProcAddress("glCreateShader");
+    glCreateProgram = (PFNGLCREATEPROGRAMPROC) wglGetProcAddress("glCreateProgram");
+    glShaderSource = (PFNGLSHADERSOURCEPROC) wglGetProcAddress("glShaderSource");
+    glCompileShader = (PFNGLCOMPILESHADERPROC) wglGetProcAddress("glCompileShader");
+    glAttachShader = (PFNGLATTACHSHADERPROC) wglGetProcAddress("glAttachShader");
+    glLinkProgram = (PFNGLLINKPROGRAMPROC) wglGetProcAddress("glLinkProgram");
+    glUseProgram = (PFNGLUSEPROGRAMPROC) wglGetProcAddress("glUseProgram");
+    glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC) wglGetProcAddress("glGetUniformLocation");
+    glUniform2f = (PFNGLUNIFORM2FPROC) wglGetProcAddress("glUniform2f");
+    glUniform1f = (PFNGLUNIFORM1FPROC) wglGetProcAddress("glUniform1f");
+    glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC) wglGetProcAddress("glGenFramebuffers");
+    glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC) wglGetProcAddress("glBindFramebuffer");
+    glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) wglGetProcAddress("glFramebufferTexture2D");
+    //     glBlitFramebuffer = (glBlitFramebuffer_t) wglGetProcAddress("glBlitFramebuffer");
+    glNamedRenderbufferStorageEXT = (PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC) wglGetProcAddress("glNamedRenderbufferStorage");
     
     // TODO: add a way of configuring this in the future.
     int w = 1920, h = 1080;
+    
     // Init loading bar.
     #include "load.h"
     int lb_size = strlen(load_frag);
-    printf("lb size is: %d\n", lb_size);
     int lb_handle = glCreateShader(GL_FRAGMENT_SHADER);
-    printf("lb handle is: %d\n", lb_handle);
     lb_program = glCreateProgram();
-    printf("lb program handle is: %d\n", lb_program);
     glShaderSource(lb_handle, 1, (GLchar **)&load_frag, &lb_size);
     glCompileShader(lb_handle);
-    //     debug(lb_handle);
     glAttachShader(lb_program, lb_handle);
-    printf("shader attached to program.\n");
     glLinkProgram(lb_program);
-    printf("linked program.\n");
     glUseProgram(lb_program);
-    printf("used program.\n");
     lb_progress_location = glGetUniformLocation(lb_program, VAR_IPROGRESS);
     lb_time_location = glGetUniformLocation(lb_program, VAR_ITIME);
     lb_resolution_location = glGetUniformLocation(lb_program, VAR_IRESOLUTION);
-    printf("have uniform locations:\n -> progress: %d\n -> time: %d\n --> resolution: %d\n", lb_progress_location, lb_time_location, lb_resolution_location);
     glUniform1f(lb_time_location, 1.2);
     glUniform1f(lb_progress_location, 0.);
     glUniform2f(lb_resolution_location, w, h);
-    printf("set uniform values\n");
-    printf("FINISHED WM_CREATE\n");
-    UINT_PTR t = SetTimer(hwnd, 1, 1000, NULL);
-  
+
+    // Set render timer
+    UINT_PTR t = SetTimer(hwnd, 1, 60, NULL);
+    
     // Main loop
     MSG msg;
-    while(GetMessage(&msg, hwnd, 0, 0) > 0 )
+    while(GetMessage(&msg, NULL, 0, 0) > 0)
     {
         TranslateMessage(&msg);
-        DispatchMessage(&msg);
-        
-        UINT m = msg.message;
-        printf("msg: %d\n",m);
-        printf("keydown: %d\n", WM_KEYDOWN);
-        switch(m)
-        {
-            case WM_KEYDOWN:
-                ExitProcess(0);
-                break;
-                
-            case WM_TIMER:
-                //HDC hdc = GetDC(hwnd);
-                printf("WM_TIMER\n");
-                printf("rendering.\n");
-                
-                glUseProgram(lb_program);
-                printf("used program.\n");
-                //             
-                glClearColor(0.,0.,0.,1.);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                printf("cleared.\n");
-                glLoadIdentity();
-                
-                glColor3f( 1.0, 1., 0.0);
-                glPolygonMode(GL_FRONT, GL_FILL);
-                printf("starting to draw.\n");
-                glBegin(GL_TRIANGLES);
-                printf("began GL\n");
-                glVertex3f(-1.,-1.,0.);
-                glVertex3f(-1.,1.,0.);
-                glVertex3f(1.,1.,0.);
-                printf("first triangle\n");
-                glVertex3f(1.,1.,0.);
-                glVertex3f(1.,-1.,0.);
-                glVertex3f(-1.,-1.,0.);
-                glEnd();
-                printf("now finsihed drawig vertices\n");
-                glFlush();
-                
-                SwapBuffers(hdc);
-                printf("making current.\n");
-                //                         wglMakeCurrent (hdc, glrc);
-                printf("rendering done.\n");
-        }
-        
+        DispatchMessage(&msg); 
     }
     
-    return 0;
+    return msg.wParam;
 }
 
 // void initdemo()
