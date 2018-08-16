@@ -42,7 +42,19 @@ size_t strlen(const char *str)
     return len;
 }
 
+#define ALLOC_MAX 1024*1024*128 // Allocate fixed buffer where we operate on. Max size is 128 MB.
+char *mem[ALLOC_MAX];
+size_t heapsize = 0;
+
+void *malloc(size_t size)
+{
+    heapsize += size;
+    if(heapsize >= ALLOC_MAX) return NULL;
+    return mem + heapsize;
+}
+
 // OpenGL extensions
+PFNGLGETPROGRAMIVPROC glGetProgramiv;
 PFNGLGETSHADERIVPROC glGetShaderiv;
 PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
 PFNGLCREATESHADERPROC glCreateShader;
@@ -61,8 +73,58 @@ PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D;
 // glBlitFramebuffer_t glBlitFramebuffer;
 PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC glNamedRenderbufferStorageEXT;
 
+// //TODO: remove
+// void debug(int shader_handle)
+// {
+//     printf("Debugging information for shader handle %d:\n", shader_handle);
+//     int compile_status = 0;
+//     glGetShaderiv(shader_handle, GL_COMPILE_STATUS, &compile_status);
+//     if(compile_status != GL_TRUE)
+//     {
+//         printf("FAILED.\n");
+//         int len = 12;
+//         glGetShaderiv(shader_handle, GL_INFO_LOG_LENGTH, &len);
+//         printf("log length: %d\n", len);
+//         GLchar *CompileLog = (GLchar *)malloc(len*sizeof(GLchar));
+//         glGetShaderInfoLog(shader_handle, len, NULL, CompileLog);
+//         printf("error: %s\n", CompileLog);
+//         free(CompileLog);
+//     } 
+// }
+
 // Shader globals
+int w = 1920, h = 1080; // TODO: add a way of configuring this in the future.
 int lb_program, lb_progress_location, lb_resolution_location, lb_time_location;
+int gfx_program, gfx_time_location, gfx_resolution_location;
+int sfx_program, sfx_blockoffset_location, sfx_samplerate_location, sfx_volumelocation;
+
+// Demo globals
+float t_start = 0.;
+int loading = 1;
+float progress = 0.;
+HANDLE loading_thread;
+DWORD loading_thread_id;
+int sample_rate = 44100, channels = 2;
+double duration1 = 3.*60.;
+float *music1, *smusic1;
+int music1_size;
+int block_size = 512*512;
+
+
+DWORD WINAPI LoadingThread( LPVOID lpParam)
+{
+    for(int i=0; i<=20; ++i)
+    {
+        Sleep(125);
+        progress = (float)i*.05;
+    }
+    
+    SYSTEMTIME st_start;
+    GetSystemTime(&st_start);
+    t_start = (float)st_start.wMinute*60.+(float)st_start.wSecond+(float)st_start.wMilliseconds/1000.;
+    
+    return 0;
+}
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -75,8 +137,24 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         case WM_TIMER:
             HDC hdc = GetDC(hwnd);
             
-            glUseProgram(lb_program);
-
+            SYSTEMTIME st_now;
+            GetSystemTime(&st_now);
+            float t_now = (float)st_now.wMinute*60.+(float)st_now.wSecond+(float)st_now.wMilliseconds/1000.;
+            
+            if(progress < 1.)
+            {
+                glUseProgram(lb_program);
+                glUniform1f(lb_time_location, t_now-t_start);
+                glUniform1f(lb_progress_location, progress);
+                glUniform2f(lb_resolution_location, w, h);
+            }
+            else 
+            {
+                glUseProgram(gfx_program);
+                glUniform1f(gfx_time_location, t_now-t_start);
+                glUniform2f(gfx_resolution_location, w, h);
+            }
+            
             glClearColor(0.,0.,0.,1.);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -105,25 +183,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-//TODO: remove
-void debug(int shader_handle)
-{
-    printf("Debugging information for shader handle %d:\n", shader_handle);
-    int compile_status = 0;
-    glGetShaderiv(shader_handle, GL_COMPILE_STATUS, &compile_status);
-    if(compile_status != GL_TRUE)
-    {
-        printf("FAILED.\n");
-        int len = 12;
-        glGetShaderiv(shader_handle, GL_INFO_LOG_LENGTH, &len);
-        printf("log length: %d\n", len);
-        GLchar *CompileLog = (GLchar *)malloc(len*sizeof(GLchar));
-        glGetShaderInfoLog(shader_handle, len, NULL, CompileLog);
-        printf("error: %s\n", CompileLog);
-        free(CompileLog);
-    } 
-}
-
 int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
     // TODO: remove 
@@ -148,7 +207,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     wc.lpszClassName = WindowClass;
     wc.hIconSm = NULL;
     
-    printf("register class: %d\n", RegisterClassEx(&wc));
+    RegisterClassEx(&wc);
     
     // Get full screen information
     HMONITOR hmon = MonitorFromWindow(0, MONITOR_DEFAULTTONEAREST);
@@ -206,6 +265,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     wglMakeCurrent (hdc, glrc);
     
     // OpenGL extensions
+    glGetProgramiv = (PFNGLGETPROGRAMIVPROC) wglGetProcAddress("glGetProgramiv");
     glGetShaderiv = (PFNGLGETSHADERIVPROC) wglGetProcAddress("glGetShaderiv");
     glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC) wglGetProcAddress("glGetShaderInfoLog");
     glCreateShader = (PFNGLCREATESHADERPROC) wglGetProcAddress("glCreateShader");
@@ -224,11 +284,11 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     //     glBlitFramebuffer = (glBlitFramebuffer_t) wglGetProcAddress("glBlitFramebuffer");
     glNamedRenderbufferStorageEXT = (PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC) wglGetProcAddress("glNamedRenderbufferStorage");
     
-    // TODO: add a way of configuring this in the future.
-    int w = 1920, h = 1080;
-    
     // Init loading bar.
-    #include "load.h"
+#undef VAR_IPROGRESS
+#undef VAR_ITIME
+#undef VAR_IRESOLUTION
+#include "load.h"
     int lb_size = strlen(load_frag);
     int lb_handle = glCreateShader(GL_FRAGMENT_SHADER);
     lb_program = glCreateProgram();
@@ -240,12 +300,112 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     lb_progress_location = glGetUniformLocation(lb_program, VAR_IPROGRESS);
     lb_time_location = glGetUniformLocation(lb_program, VAR_ITIME);
     lb_resolution_location = glGetUniformLocation(lb_program, VAR_IRESOLUTION);
-    glUniform1f(lb_time_location, 1.2);
-    glUniform1f(lb_progress_location, 0.);
-    glUniform2f(lb_resolution_location, w, h);
+    
+    // Init gfx
+#undef VAR_IRESOLUTION
+#undef VAR_ITIME
+#include "gfx.h"
+    int gfx_size = strlen(gfx_frag),
+        gfx_handle = glCreateShader(GL_FRAGMENT_SHADER);
+    gfx_program = glCreateProgram();
+    glShaderSource(gfx_handle, 1, (GLchar **)&gfx_frag, &gfx_size);
+    glCompileShader(gfx_handle);
+    glAttachShader(gfx_program, gfx_handle);
+    glLinkProgram(gfx_program);
+    glUseProgram(gfx_program);
+    gfx_time_location =  glGetUniformLocation(gfx_program, VAR_ITIME);
+    gfx_resolution_location = glGetUniformLocation(gfx_program, VAR_IRESOLUTION);
+    
+    // Init sfx
+#undef VAR_IBLOCKOFFSET
+#undef VAR_ISAMPLERATE
+#undef VAR_IVOLUME
+#include "sfx.h"
+    int sfx_size = strlen(sfx_frag),
+        sfx_handle = glCreateShader(GL_FRAGMENT_SHADER);
+    sfx_program = glCreateProgram();
+    glShaderSource(sfx_handle, 1, (GLchar **)&sfx_frag, &sfx_size);
+    glCompileShader(sfx_handle);
+    glAttachShader(sfx_program, sfx_handle);
+    glLinkProgram(sfx_program);
+    glUseProgram(sfx_program);
+    sfx_samplerate_location = glGetUniformLocation(sfx_program, VAR_ISAMPLERATE);
+    sfx_blockoffset_location = glGetUniformLocation(sfx_program, VAR_IBLOCKOFFSET);
+    sfx_volumelocation = glGetUniformLocation(sfx_program, VAR_IVOLUME);
+    
+    int nblocks1 = sample_rate*duration1/block_size;
+    music1_size = nblocks1*block_size; 
+    music1 = (float*)malloc(4*block_size);
+    smusic1 = (float*)malloc(4*music1_size);
+    
+    unsigned int snd_framebuffer;
+    glGenFramebuffers(1, &snd_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, snd_framebuffer);
+    glPixelStorei(GL_PACK_ALIGNMENT,  4);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    
+    unsigned int snd_texture;
+    glGenTextures(1, &snd_texture);
+    glBindTexture(GL_TEXTURE_2D, snd_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, snd_texture, 0);
+
+    for(int i=0; i<nblocks1; ++i)
+    {
+        double tstart = (double)(i*block_size)/(double)sample_rate;
+        printf("tstart is: %le\n", tstart);
+        
+        glViewport(0,0,512,512);
+        
+        glUniform1f(sfx_volumelocation, 1.);
+        glUniform1f(sfx_samplerate_location, (float)sample_rate);
+        glUniform1f(sfx_blockoffset_location, (float)tstart);
+        
+        glBegin(GL_QUADS);
+        glVertex3f(-1,-1,0);
+        glVertex3f(-1,1,0);
+        glVertex3f(1,1,0);
+        glVertex3f(1,-1,0);
+        glEnd();
+
+        glFlush();
+
+        glReadPixels(0, 0, 512, 512, GL_RGBA, GL_UNSIGNED_BYTE, music1);
+
+        for(int j=0; j<block_size; ++j)
+        {
+            smusic1[2*i*block_size+2*j] = (float)LOWORD((DWORD)music1[j]);
+            smusic1[2*i*block_size+2*j+1] = (float)HIWORD((DWORD)music1[j]);
+//             printf("%le %le\n", smusic1[2*i*block_size+2*j], smusic1[2*i*block_size+2*j+1]);
+        }
+    }
+    
+    // Reset everything for rendering
+    glViewport(0, 0, w, h);
+    glUseProgram(0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);   
+    
     // Set render timer
     UINT_PTR t = SetTimer(hwnd, 1, 60, NULL);
+    
+    // Get start time for relative time sync
+    SYSTEMTIME st_start;
+    GetSystemTime(&st_start);
+    t_start = (float)st_start.wMinute*60.+(float)st_start.wSecond+(float)st_start.wMilliseconds/1000.;
+    
+    // Start loading thread
+    loading_thread = CreateThread( 
+            NULL,                   // default security attributes
+            0,                      // use default stack size  
+            LoadingThread,       // thread function name
+            NULL,          // argument to thread function 
+            0,                      // use default creation flags 
+            &loading_thread_id);   // returns the thread identifier 
     
     // Main loop
     MSG msg;
@@ -258,96 +418,3 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     return msg.wParam;
 }
 
-// void initdemo()
-// {
-
-// 
-// #ifdef DEBUG //TODO: finish all debug outputs
-//     printf("Addresses of opengl extensions:\n");
-//     printf("glGetShaderiv :: %p\n", glGetShaderiv);
-// #endif
-//     
-//     //parameters //TODO: add command line parser here? Or maybe just a config file?
-//     w = 1920, h = 1080;
-//     
-// #ifdef DEBUG
-//     printf("Team210 proudly presents \"Eternal Darkness\"\nWe are:\nQM :: Code/SFX\nNR4 :: Code/GFX\n");
-// #endif
-//     
-//     // load loading bar shader
-// #include "load.h"
-//     int lb_size = strlen(load_frag),
-//         lb_handle = glCreateShader(GL_FRAGMENT_SHADER),
-//         lb_program = glCreateProgram();
-//     glShaderSource(lb_handle, 1, (GLchar **)&load_frag, &lb_size);
-//     glCompileShader(lb_handle);
-// #ifdef DEBUG
-//     printf("Compile Debug info for load.frag:");
-//     debug(lb_handle);
-// #endif
-//     glAttachShader(lb_program, lb_handle);
-//     glLinkProgram(lb_program);
-// #ifdef DEBUG
-//     printf("Link Debug info for load.frag:");
-//     debug_link(lb_program);
-// #endif
-//     glUseProgram(lb_program);
-//     int lb_progress_location = glGetUniformLocation(lb_program, VAR_IPROGRESS),
-//         lb_time_location = glGetUniformLocation(lb_program, VAR_ITIME),
-//         lb_resolution_location = glGetUniformLocation(lb_program, VAR_IRESOLUTION);
-//     glUniform1f(lb_time_location, 1.2);
-//     glUniform1f(lb_progress_location, 0.);
-//     glUniform2f(lb_resolution_location, w, h);
-//     render();
-//     
-//     // load gfx shader
-// #undef VAR_IRESOLUTION
-// #undef VAR_ITIME
-// #include "gfx.h"
-//     int gfx_size = strlen(gfx_frag),
-//         gfx_handle = glCreateShader(GL_FRAGMENT_SHADER),
-//         gfx_program = glCreateProgram();
-//     glShaderSource(gfx_handle, 1, (GLchar **)&gfx_frag, &gfx_size);
-//     glCompileShader(gfx_handle);
-// #ifdef DEBUG
-//     printf("Debug info for gfx.frag:");
-//     debug(gfx_handle);
-// #endif
-//     glAttachShader(gfx_program, gfx_handle);
-//     glLinkProgram(gfx_program);
-// #ifdef DEBUG
-//     printf("Link Debug info for gfx.frag:");
-//     debug_link(gfx_program);
-// #endif
-//     int gfx_time_location =  glGetUniformLocation(gfx_program, VAR_ITIME),
-//         gfx_resolution_location = glGetUniformLocation(gfx_program, VAR_IRESOLUTION);
-//     glUniform1f(lb_progress_location, .25);
-//     
-//     render();
-//     
-//     // load sfx shader
-// #include "sfx.h"
-//     int sfx_size = strlen(sfx_frag),
-//         sfx_handle = glCreateShader(GL_FRAGMENT_SHADER),
-//         sfx_program = glCreateProgram();
-//     glShaderSource(sfx_handle, 1, (GLchar **)&sfx_frag, &sfx_size);
-//     glCompileShader(sfx_handle);
-// #ifdef DEBUG
-//     printf("Debug info for sfx.frag:");
-//     debug(sfx_handle);
-// #endif
-//     glAttachShader(sfx_program, sfx_handle);
-// //     glLinkProgram(sfx_program); //TODO: Sound shader has array indexing in for loop; this crashes the linker. FIXME
-// #ifdef DEBUG
-//     printf("Link Debug info for sfx.frag:");
-//     debug_link(sfx_program);
-// #endif
-//     
-//     glUniform1f(lb_progress_location, .5);
-//     render();
-//     
-//     glUseProgram(gfx_program);
-//     glUniform1f(gfx_time_location, 10.);
-//     glUniform2f(gfx_resolution_location, w, h);
-//     render();
-// }
