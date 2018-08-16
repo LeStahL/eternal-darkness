@@ -74,10 +74,8 @@ PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D;
 // glBlitFramebuffer_t glBlitFramebuffer;
 PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC glNamedRenderbufferStorageEXT;
 
-// //TODO: remove
 // void debug(int shader_handle)
 // {
-//     printf("Debugging information for shader handle %d:\n", shader_handle);
 //     int compile_status = 0;
 //     glGetShaderiv(shader_handle, GL_COMPILE_STATUS, &compile_status);
 //     if(compile_status != GL_TRUE)
@@ -86,11 +84,10 @@ PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC glNamedRenderbufferStorageEXT;
 //         int len = 12;
 //         glGetShaderiv(shader_handle, GL_INFO_LOG_LENGTH, &len);
 //         printf("log length: %d\n", len);
-//         GLchar *CompileLog = (GLchar *)malloc(len*sizeof(GLchar));
+//         GLchar CompileLog[1024];
 //         glGetShaderInfoLog(shader_handle, len, NULL, CompileLog);
 //         printf("error: %s\n", CompileLog);
-//         free(CompileLog);
-//     } 
+//     }
 // }
 
 // Shader globals
@@ -105,12 +102,11 @@ int loading = 1;
 float progress = 0.;
 HANDLE loading_thread;
 DWORD loading_thread_id;
-int sample_rate = 44100, channels = 2;
+int sample_rate = 48000, channels = 2;
 double duration1 = 3.*60.;
 float *music1, *smusic1;
 int music1_size;
 int block_size = 512*512;
-
 
 DWORD WINAPI LoadingThread( LPVOID lpParam)
 {
@@ -125,10 +121,11 @@ DWORD WINAPI LoadingThread( LPVOID lpParam)
     t_start = (float)st_start.wMinute*60.+(float)st_start.wSecond+(float)st_start.wMilliseconds/1000.;
     
     HWAVEOUT hWaveOut = 0;
-	WAVEFORMATEX wfx = { WAVE_FORMAT_PCM, 2, sample_rate, sample_rate*4, 4, 16, 0 };
+    int n_bits_per_sample = 16;
+	WAVEFORMATEX wfx = { WAVE_FORMAT_PCM, channels, sample_rate, sample_rate*channels*n_bits_per_sample/8, channels*n_bits_per_sample/8, n_bits_per_sample, 0 };
 	waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL);
 	
-	WAVEHDR header = { smusic1, music1_size, 0, 0, 0, 0, 0, 0 };
+	WAVEHDR header = { smusic1, music1_size/4, 0, 0, 0, 0, 0, 0 };
 	waveOutPrepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
 	waveOutWrite(hWaveOut, &header, sizeof(WAVEHDR));
 	waveOutUnprepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
@@ -197,10 +194,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
     // TODO: remove 
-    AllocConsole();
-    freopen("CONIN$", "r", stdin);
-    freopen("CONOUT$", "w", stdout);
-    freopen("CONOUT$", "w", stderr);
+//     AllocConsole();
+//     freopen("CONIN$", "r", stdin);
+//     freopen("CONOUT$", "w", stdout);
+//     freopen("CONOUT$", "w", stderr);
     
     CHAR WindowClass[]  = "Team210 Demo Window";
     
@@ -337,6 +334,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     sfx_program = glCreateProgram();
     glShaderSource(sfx_handle, 1, (GLchar **)&sfx_frag, &sfx_size);
     glCompileShader(sfx_handle);
+//     debug(sfx_handle);
     glAttachShader(sfx_program, sfx_handle);
     glLinkProgram(sfx_program);
     glUseProgram(sfx_program);
@@ -344,7 +342,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     sfx_blockoffset_location = glGetUniformLocation(sfx_program, VAR_IBLOCKOFFSET);
     sfx_volumelocation = glGetUniformLocation(sfx_program, VAR_IVOLUME);
     
-    int nblocks1 = sample_rate*duration1/block_size;
+    int nblocks1 = channels*sample_rate*duration1/block_size;
     music1_size = nblocks1*block_size; 
     music1 = (float*)malloc(4*block_size);
     smusic1 = (float*)malloc(4*music1_size);
@@ -358,7 +356,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     unsigned int snd_texture;
     glGenTextures(1, &snd_texture);
     glBindTexture(GL_TEXTURE_2D, snd_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA, 512, 512, 0, GL_RGBA, GL_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
@@ -387,14 +385,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
 
         glFlush();
 
-        glReadPixels(0, 0, 512, 512, GL_RGBA, GL_UNSIGNED_BYTE, music1);
-
-        for(int j=0; j<block_size; ++j)
-        {
-            smusic1[2*i*block_size+2*j] = (float)LOWORD((DWORD)music1[j]);
-            smusic1[2*i*block_size+2*j+1] = (float)HIWORD((DWORD)music1[j]);
-//             printf("%le %le\n", smusic1[2*i*block_size+2*j], smusic1[2*i*block_size+2*j+1]);
-        }
+        glReadPixels(0, 0, 512, 512, GL_RGBA, GL_BYTE, smusic1+i*block_size);
     }
     
     // Reset everything for rendering gfx again

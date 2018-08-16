@@ -4,17 +4,10 @@ uniform float iBlockOffset;
 uniform float iSampleRate;
 uniform float iVolume;
 
-vec2 mainSound(float t)
+vec2 mainSound( float time )
 {
-    //maybe this works in enhancing the stereo feel
-    float stereo_width = 0.1;
-    float stereo_delay = 0.00001;
-    
-//     float comp_l = mainSynth(t) + stereo_width * mainSynth(t - stereo_delay);
-//     float comp_r = mainSynth(t) + stereo_width * mainSynth(t + stereo_delay);
-    
-//     return vec2(comp_l * .99999, comp_r * .99999); 
-    return vec2(tanh(sin(acos(-1.)*440.*t)));
+    // A 440 Hz wave that attenuates quickly overt time
+    return vec2( sin(6.2831*440.0*time)*exp(-3.0*time) );
 }
 
 void main() 
