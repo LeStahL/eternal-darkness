@@ -20,6 +20,7 @@ int _fltused = 0;
 #define WIN32_LEAN_AND_MEAN
 #define VC_EXTRALEAN
 #include <windows.h>
+#include <mmsystem.h>
 
 #include <GL/gl.h>
 #include "glext.h"
@@ -122,6 +123,16 @@ DWORD WINAPI LoadingThread( LPVOID lpParam)
     SYSTEMTIME st_start;
     GetSystemTime(&st_start);
     t_start = (float)st_start.wMinute*60.+(float)st_start.wSecond+(float)st_start.wMilliseconds/1000.;
+    
+    HWAVEOUT hWaveOut = 0;
+	WAVEFORMATEX wfx = { WAVE_FORMAT_PCM, 2, sample_rate, sample_rate*4, 4, 16, 0 };
+	waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL);
+	
+	WAVEHDR header = { smusic1, music1_size, 0, 0, 0, 0, 0, 0 };
+	waveOutPrepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
+	waveOutWrite(hWaveOut, &header, sizeof(WAVEHDR));
+	waveOutUnprepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
+    waveOutClose(hWaveOut);
     
     return 0;
 }
@@ -355,6 +366,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, snd_texture, 0);
 
+    // Render sfx
     for(int i=0; i<nblocks1; ++i)
     {
         double tstart = (double)(i*block_size)/(double)sample_rate;
@@ -385,7 +397,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
         }
     }
     
-    // Reset everything for rendering
+    // Reset everything for rendering gfx again
     glViewport(0, 0, w, h);
     glUseProgram(0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);   
