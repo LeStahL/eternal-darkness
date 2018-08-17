@@ -303,7 +303,7 @@ vec2 scene1(vec3 x)
 //lake scene
 vec2 scene2(vec3 x)
 {
-    x += c.xxy * 15.+c.yxy*5.e-2*t;
+    x += -13.*c.yxy + c.xxy * 25.+c.yxy*5.e-2*t;
     float k =- .5*mfsmoothstep_noise2d(x.xy, .91, 2., .1);
     if(x.z>-.19) k += .05*mfsmoothstep_noise2d(x.xy, 120., 180., 1.7);
     vec2 sda = vec2(x.z+k, 1.),
@@ -494,7 +494,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     vec4 dt1, dt2, dt3;
     fore(dt1, uv, iTime);
-    if(iTime < 50.)
+    if(iTime < 40.)
     {
         fore(dt2, uv, iTime+1.e-2);
         //fore(dt3, uv, iTime+2.e-2);
