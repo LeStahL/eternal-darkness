@@ -1,4 +1,20 @@
-
+/* Eternal Darkness by Team210
+ * Copyright (C) 2018  Alexander Kraus <nr4@z10.info>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+ 
 #version 130
 
 uniform float iTime;
@@ -413,11 +429,7 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
         ci = 50.;
         ni = 200;
     }
-    if(time > 40.) 
-    {
-        ni = 200;
-        ci = 40.;
-    }
+    else if(time > 40.) ci = 200.;
     for(int i=0; i<ni; ++i)
     {
         x = o + d * rd;
@@ -510,7 +522,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     col += 1.4*(.5+.25*sin(2.3*pi*ph)+.25*sin(4.*pi*ph)+.25*sin(1.5*pi*ph))*exp(-3.*ra)*c.xxx*exp(-9.e-1*t)*(1.-smoothstep(1.4,1.6,iTime));
     
     //text
-    /*
     float d = 1.;
     if(iTime < 8.)
     {
@@ -560,10 +571,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         for(int i=0; i<68; ++i) d=min(d,dsp(quad[3*i], quad[3*i+1], quad[3*i+2], uv));
 		col = mix(col, .8*c.xxx, B(30.)*smoothstep(.005, .002, d ));
     }   
-*/
     
     fragColor = vec4(col,1.0);
-}void main()
+}
+
+void main()
 {
     mainImage(gl_FragColor, gl_FragCoord.xy);
 }

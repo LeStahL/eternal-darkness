@@ -20,11 +20,12 @@ project(eternal-darkness)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-include_directories("C:\\Users\\NR4\\Downloads\\SDL2-devel-2.0.8-VC\\SDL2-2.0.8\\include" ${PROJECT_SOURCE_DIR})
-# STRING (REGEX REPLACE "/RTC(su|[1su])" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 add_definitions(/Gy /O1 /fp:fast /GR- /GS- /MT)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ENTRY:demo /SUBSYSTEM:Windows  /OPT:REF  /OPT:ICF=10 /VERBOSE /NODEFAULTLIB") # /ENTRY:demo /NODEFAULTLIB
 add_executable(etd etd.c)
 
 # TODO: remove ucrt.lib if DEBUG is undefined in-source
-target_link_libraries(etd opengl32.lib ucrt.lib User32.lib Winmm.lib) #ucrt.lib  libcmt.lib version.lib imm32.lib winmm.lib
+target_link_libraries(etd opengl32.lib Winmm.lib) #ucrt.lib  libcmt.lib version.lib imm32.lib winmm.lib
+
+add_executable(debug debug.c)
+target_link_libraries(debug opengl32.lib Winmm.lib User32.lib ucrt.lib msvcrt.lib)

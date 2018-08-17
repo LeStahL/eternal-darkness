@@ -43,15 +43,9 @@ size_t strlen(const char *str)
     return len;
 }
 
-#define ALLOC_MAX 1024*1024*128 // Allocate fixed buffer where we operate on. Max size is 128 MB.
-char *mem[ALLOC_MAX];
-size_t heapsize = 0;
-
-void *malloc(size_t size)
+void *malloc( unsigned int size )
 {
-    heapsize += size;
-    if(heapsize >= ALLOC_MAX) return NULL;
-    return mem + heapsize;
+    return GlobalAlloc(GMEM_ZEROINIT, size) ;
 }
 
 // OpenGL extensions
@@ -74,22 +68,6 @@ PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D;
 // glBlitFramebuffer_t glBlitFramebuffer;
 PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC glNamedRenderbufferStorageEXT;
 
-// void debug(int shader_handle)
-// {
-//     int compile_status = 0;
-//     glGetShaderiv(shader_handle, GL_COMPILE_STATUS, &compile_status);
-//     if(compile_status != GL_TRUE)
-//     {
-//         printf("FAILED.\n");
-//         int len = 12;
-//         glGetShaderiv(shader_handle, GL_INFO_LOG_LENGTH, &len);
-//         printf("log length: %d\n", len);
-//         GLchar CompileLog[1024];
-//         glGetShaderInfoLog(shader_handle, len, NULL, CompileLog);
-//         printf("error: %s\n", CompileLog);
-//     }
-// }
-
 // Shader globals
 int w = 1920, h = 1080; // TODO: add a way of configuring this in the future.
 int lb_program, lb_progress_location, lb_resolution_location, lb_time_location;
@@ -102,8 +80,8 @@ int loading = 1;
 float progress = 0.;
 HANDLE loading_thread;
 DWORD loading_thread_id;
-int sample_rate = 48000, channels = 2;
-double duration1 = 3.*60.;
+int sample_rate = 44100, channels = 2;
+double duration1 = 12.*60.;
 float *music1, *smusic1;
 int music1_size;
 int block_size = 512*512;
@@ -193,12 +171,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
-    // TODO: remove 
-//     AllocConsole();
-//     freopen("CONIN$", "r", stdin);
-//     freopen("CONOUT$", "w", stdout);
-//     freopen("CONOUT$", "w", stderr);
-    
     CHAR WindowClass[]  = "Team210 Demo Window";
     
     WNDCLASSEX wc = { 0 };
@@ -313,6 +285,10 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
 #undef VAR_IRESOLUTION
 #undef VAR_ITIME
 #include "gfx.h"
+#ifndef VAR_IRESOLUTION
+#define VAR_IRESOLUTION "iResolution"
+#ifndef VAR_ITIME
+#define VAR_ITIME "iTime"
     int gfx_size = strlen(gfx_frag),
         gfx_handle = glCreateShader(GL_FRAGMENT_SHADER);
     gfx_program = glCreateProgram();
@@ -323,6 +299,8 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     glUseProgram(gfx_program);
     gfx_time_location =  glGetUniformLocation(gfx_program, VAR_ITIME);
     gfx_resolution_location = glGetUniformLocation(gfx_program, VAR_IRESOLUTION);
+#endif
+#endif
     
     // Init sfx
 #undef VAR_IBLOCKOFFSET
@@ -334,7 +312,6 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     sfx_program = glCreateProgram();
     glShaderSource(sfx_handle, 1, (GLchar **)&sfx_frag, &sfx_size);
     glCompileShader(sfx_handle);
-//     debug(sfx_handle);
     glAttachShader(sfx_program, sfx_handle);
     glLinkProgram(sfx_program);
     glUseProgram(sfx_program);
@@ -344,7 +321,6 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     
     int nblocks1 = channels*sample_rate*duration1/block_size;
     music1_size = nblocks1*block_size; 
-    music1 = (float*)malloc(4*block_size);
     smusic1 = (float*)malloc(4*music1_size);
     
     unsigned int snd_framebuffer;
@@ -368,7 +344,6 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     for(int i=0; i<nblocks1; ++i)
     {
         double tstart = (double)(i*block_size)/(double)sample_rate;
-        printf("tstart is: %le\n", tstart);
         
         glViewport(0,0,512,512);
         
@@ -394,7 +369,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     glBindFramebuffer(GL_FRAMEBUFFER, 0);   
     
     // Set render timer
-    UINT_PTR t = SetTimer(hwnd, 1, 60, NULL);
+    UINT_PTR t = SetTimer(hwnd, 1, 1000./60., NULL);
     
     // Get start time for relative time sync
     SYSTEMTIME st_start;
