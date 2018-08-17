@@ -14,12 +14,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
- 
+
 #version 130
 
 uniform float iTime;
 uniform vec2 iResolution;
-
+ 
 const float pi = acos(-1.);
 const vec3 c = vec3(1., 0., -1.);
 
@@ -253,36 +253,42 @@ vec3 vor(vec2 x)
     
     //find closest control point. ("In which cell am I?")
     vec2 pf=c.yy, p;
-    float df=1000., d;
+    float df=100., d;
     
-    for(int i=-2; i<=2; i+=1)
-        for(int j=-2; j<=2; j+=1)
+    vec3 a = c.xyy*100.;
+    
+    for(float i=-2.; i<=2.; i+=1.)
+        for(float j=-2.; j<=2.; j+=1.)
         {
-            p = y + vec2(float(i), float(j));
-            p += rand(p+30.);
+            p = y + vec2(i, j);
+            p += rand(p);
             
             d = length(x-p);
             
-            if(d < df)
-            {
-                df = d;
-                pf = p;
-            }
+            a = mix(a, vec3(d,p), step(d, a.x));
         }
     
     //compute voronoi distance: minimum distance to any edge
-    for(int i=-2; i<=2; i+=1)
-        for(int j=-2; j<=2; j+=1)
+    for(float i=-2.; i<=2.; i+=1.)
+        for(float j=-2.; j<=2.; j+=1.)
         {
-            p = y + vec2(float(i), float(j));
-            p += rand(p+30.);
+            p = y + vec2(i, j);
+            p += rand(p);
             
-            vec2 o = p - pf;
-            d = length(.5*o-dot(x-pf, o)/dot(o,o)*o);
+            vec2 o = p - a.yz;
+            d = dot(.5*o-x+a.yz, o)/length(o);
             ret = min(ret, d);
         }
     
     return vec3(ret, pf);
+}
+
+vec3 rot(vec3 x, vec3 theta)
+{
+    vec3 c = cos(theta), s = sin(theta);
+    return mat3(c.x,0.,s.x,0.,1.,0.,-s.x,0.,c.x)
+        *mat3(1., 0., 0., 0., c.y, -s.y, 0., s.y, c.y)
+        *mat3(c.z,-s.z,0., s.z,c.z,0., 0.,0.,1.)*x;
 }
 
 //returns vec2(sdf, material)
@@ -348,7 +354,7 @@ vec2 scene4(vec3 x)
    //vec2 sdf=c.xy,  sda;
 
     float phi =3.*acos(min(y.z,y.x)/length(y.xz));
-    vec3 vp = .5*vor(vec2(y.y,phi))+.1*vor(2.*vec2(phi, y.y))-.02*vor(5.*vec2(phi,y.y));
+    vec3 vp = .5*vor(vec2(y.y+phi,phi));//+.1*vor(2.*vec2(phi, y.y));//-.02*vor(5.*vec2(phi,y.y));
     //vec3 vp = .5*vor(y.xy+20.);
     float v = vp.x;
     vi = vp.yz;
@@ -577,5 +583,5 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
 void main()
 {
-    mainImage(gl_FragColor, gl_FragCoord.xy);
+    mainImage(GL_FragColor, GL_FragCoord.xy);
 }
