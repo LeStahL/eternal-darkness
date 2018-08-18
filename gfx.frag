@@ -396,8 +396,37 @@ vec2 scene4(vec3 x)
 //party scene
 vec2 scene5(vec3 x)
 {   
-    vec2 sdf = c.xy;
+    vec3 x0 = x;
+    x += 1.e0*t*c.yxy;
     
+    vec3 y = x;
+    x = vec3(mod(x.xy,1.)-.5, x.z);
+
+    vec3 index = y-x;
+    vi = index.xy;
+    float ang = 2.*pi*rand(index.xy)*t;
+    x.xy = mat2(cos(ang), sin(ang), -sin(ang), cos(ang))*x.xy;
+
+    
+    float ds = dstar(x.xy, 5., vec2(.2,.4));
+    
+    //vec2 sdf = vec2(length(vec2(min(ds,0.), min(abs(x.z+1.3), 0.05))) ,6.);
+    vec2 d = abs(vec2(min(ds,0.),x.z+1.3)) -.4*c.yx- (.5+mod(t,T))*.5*rand(index.xy+t-mod(t,T))*c.yx;
+    vec2 sdf = vec2(min(max(d.x,d.y),0.) + length(max(d,0.0)),6.);
+    
+
+    ds = dstar(x.xy, 5., vec2(.2,.4));
+    
+    //vec2 sda = vec2(length(vec2(min(ds,0.), min((x.z-1.3+(.5+mod(t,T))*.5*rand(index.xy+t-mod(t,T))), 0.))) ,6.);
+    d = abs(vec2(min(ds,0.),x.z-1.3)) -.4*c.yx- (.5+mod(t,T))*.5*rand(index.xy+t-mod(t,T))*c.yx;
+    vec2 sda = vec2(min(max(d.x,d.y),0.) + length(max(d,0.0)),6.);
+    
+    sdf = mix(sdf, sda, step(sda.x, sdf.x));
+    
+    
+    float guard = -length(max(abs(x+50.*c.yyx)-vec3(.5,.5,100.),0.));
+    guard = abs(guard)+1.*.1;
+    sdf.x = min(sdf.x, guard);
     
     return sdf;
 }
@@ -408,7 +437,7 @@ vec2 scene(vec3 x)
     else if(t < 30.) return scene2(x);
     else if(t < 40.) return scene3(x);
     else if(t < 50.) return scene4(x);
-    else if(t < 60.) return scene5(x);
+    else if(t < 7000.) return scene5(x);
 }
 
 const float dx = 1.e-4;
@@ -514,6 +543,17 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
         v = normalize(x-o);
         col = .6+.3*vec3(.75+.1*rand(vi),.75+.1*rand(2.*vi), .6+.4*rand(5.*vi))*dot(l,n)*mod(t,T)/T+.8*c.xxx*dot(l,n)+.05*c.xxx*pow(abs(dot(re,v)), 2.);
     }
+    else if(s.y == 6.)//dance
+    {
+        l = normalize(x-c.yxy);
+        re = normalize(reflect(-l,n));
+        v = normalize(x-c.yxy-o);
+        vec3 co = .5 + .5*cos(x+vec3(0.,2.,4.)+5.*rand(vi)+time), 
+            co2 = .5 + .5*cos(x+vec3(0.,2.,4.)+6.*rand(vi+3.)+time),
+            co3 = .5 + .5*cos(x+vec3(0.,2.,4.)+7.*rand(vi+7.)+time);
+        col = co+co2*dot(l,n)+co3*pow(abs(dot(re,v)), 2.);
+    }
+    
     else col = c.yyy;
     
     //fog
@@ -547,7 +587,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 col = fragColor.xyz;
     
     //banner for text
-    if(iTime < 30.)
+    if(iTime < 180.)
     {
         s = z10presents(uv);
         float sc = step(s.x, 0.) ; //objects
