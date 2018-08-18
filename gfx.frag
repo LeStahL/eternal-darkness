@@ -19,7 +19,7 @@
 
 uniform float iTime;
 uniform vec2 iResolution;
- 
+
 const float pi = acos(-1.);
 const vec3 c = vec3(1., 0., -1.);
 
@@ -291,6 +291,29 @@ vec3 rot(vec3 x, vec3 theta)
         *mat3(c.z,-s.z,0., s.z,c.z,0., 0.,0.,1.)*x;
 }
 
+// compute distance to regular star
+float dstar(vec2 x, float N, vec2 R)
+{
+    float d = pi/N,
+        p0 = acos(x.x/length(x)),
+        p = mod(p0, d),
+        i = mod(round((p-p0)/d),2.);
+    x = length(x)*vec2(cos(p),sin(p));
+    vec2 a = mix(R,R.yx,i),
+    	p1 = a.x*c.xy,
+        ff = a.y*vec2(cos(d),sin(d))-p1;
+   	ff = ff.yx*c.zx;
+    return dot(x-p1,ff)/length(ff);
+}
+
+// compute distance to regular polygon
+float dpoly_min(vec2 x, float N, float R)
+{
+    float d = 2.*pi/N,
+        t = mod(acos(x.x/length(x)), d)-.5*d;
+    return R-length(x)*cos(t)/cos(.5*d);
+}
+
 //returns vec2(sdf, material)
 vec2 z10presents(vec2 x)
 {
@@ -370,12 +393,22 @@ vec2 scene4(vec3 x)
     return sdf;
 }
 
+//party scene
+vec2 scene5(vec3 x)
+{   
+    vec2 sdf = c.xy;
+    
+    
+    return sdf;
+}
+
 vec2 scene(vec3 x)
 {
     if(t < 20.) return scene1(x);//TODO: direction
     else if(t < 30.) return scene2(x);
     else if(t < 40.) return scene3(x);
-    else if(t < 7000.) return scene4(x);
+    else if(t < 50.) return scene4(x);
+    else if(t < 60.) return scene5(x);
 }
 
 const float dx = 1.e-4;
@@ -514,7 +547,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 col = fragColor.xyz;
     
     //banner for text
-    if(iTime < 180.)
+    if(iTime < 30.)
     {
         s = z10presents(uv);
         float sc = step(s.x, 0.) ; //objects
@@ -529,7 +562,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     //text
     float d = 1.;
-    /*
     if(iTime < 8.)
     {
         const vec2 lin[84] = vec2[84](vec2(-3.88e-01,-4.15e-01),vec2(-3.88e-01,-3.68e-01),vec2(-4.00e-01,-3.68e-01),vec2(-3.77e-01,-3.68e-01),vec2(-3.53e-01,-4.15e-01),vec2(-3.41e-01,-4.15e-01),vec2(-3.64e-01,-4.03e-01),vec2(-3.41e-01,-4.03e-01),vec2(-3.05e-01,-4.15e-01),vec2(-3.05e-01,-3.92e-01),vec2(-2.93e-01,-4.15e-01),vec2(-2.93e-01,-3.92e-01),vec2(-2.70e-01,-4.15e-01),vec2(-2.70e-01,-4.03e-01),vec2(-2.47e-01,-4.15e-01),vec2(-2.47e-01,-4.03e-01),vec2(-2.34e-01,-4.15e-01),vec2(-2.11e-01,-4.15e-01),vec2(-1.99e-01,-3.80e-01),vec2(-1.87e-01,-3.68e-01),vec2(-1.87e-01,-3.68e-01),vec2(-1.87e-01,-4.15e-01),vec2(-1.75e-01,-4.03e-01),vec2(-1.75e-01,-3.80e-01),vec2(-1.51e-01,-4.03e-01),vec2(-1.51e-01,-3.80e-01),vec2(-1.15e-01,-4.38e-01),vec2(-1.15e-01,-3.92e-01),vec2(-1.15e-01,-3.92e-01),vec2(-1.04e-01,-3.92e-01),vec2(-1.15e-01,-4.15e-01),vec2(-1.04e-01,-4.15e-01),vec2(-7.97e-02,-4.15e-01),vec2(-7.97e-02,-3.92e-01),vec2(-2.02e-02,-3.92e-01),vec2(-2.02e-02,-4.03e-01),vec2(3.08e-03,-3.92e-01),vec2(3.08e-03,-4.15e-01),vec2(2.70e-02,-3.92e-01),vec2(3.87e-02,-3.92e-01),vec2(2.70e-02,-4.15e-01),vec2(3.87e-02,-4.15e-01),vec2(3.87e-02,-4.15e-01),vec2(3.87e-02,-3.68e-01),vec2(5.09e-02,-4.03e-01),vec2(5.09e-02,-3.68e-01),vec2(7.48e-02,-3.92e-01),vec2(7.48e-02,-4.03e-01),vec2(9.82e-02,-3.92e-01),vec2(9.82e-02,-4.27e-01),vec2(8.65e-02,-4.38e-01),vec2(7.48e-02,-4.38e-01),vec2(1.34e-01,-4.38e-01),vec2(1.34e-01,-3.92e-01),vec2(1.34e-01,-3.92e-01),vec2(1.46e-01,-3.92e-01),vec2(1.34e-01,-4.15e-01),vec2(1.46e-01,-4.15e-01),vec2(1.70e-01,-4.15e-01),vec2(1.70e-01,-3.92e-01),vec2(2.06e-01,-4.15e-01),vec2(2.17e-01,-4.15e-01),vec2(1.94e-01,-4.03e-01),vec2(2.17e-01,-4.03e-01),vec2(2.29e-01,-4.15e-01),vec2(2.41e-01,-4.15e-01),vec2(2.41e-01,-3.92e-01),vec2(2.53e-01,-3.92e-01),vec2(2.77e-01,-4.15e-01),vec2(2.88e-01,-4.15e-01),vec2(2.65e-01,-4.03e-01),vec2(2.88e-01,-4.03e-01),vec2(3.01e-01,-4.15e-01),vec2(3.01e-01,-3.92e-01),vec2(3.24e-01,-4.03e-01),vec2(3.24e-01,-4.15e-01),vec2(3.48e-01,-4.03e-01),vec2(3.48e-01,-3.68e-01),vec2(3.36e-01,-3.92e-01),vec2(3.60e-01,-3.92e-01),vec2(3.72e-01,-4.15e-01),vec2(3.83e-01,-4.15e-01),vec2(3.83e-01,-3.92e-01),vec2(3.95e-01,-3.92e-01)),
@@ -578,7 +610,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         for(int i=0; i<68; ++i) d=min(d,dsp(quad[3*i], quad[3*i+1], quad[3*i+2], uv));
 		col = mix(col, .8*c.xxx, B(30.)*smoothstep(.005, .002, d ));
     }   
-    */
     
     fragColor = vec4(col,1.0);
 }
