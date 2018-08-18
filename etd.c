@@ -81,8 +81,8 @@ float progress = 0.;
 HANDLE loading_thread;
 DWORD loading_thread_id;
 int sample_rate = 44100, channels = 2;
-double duration1 = 12.*60.;
-float *music1, *smusic1;
+double duration1 = 3.*60.; //3 min running time
+float *smusic1;
 int music1_size;
 int block_size = 512*512;
 
@@ -97,17 +97,6 @@ DWORD WINAPI LoadingThread( LPVOID lpParam)
     SYSTEMTIME st_start;
     GetSystemTime(&st_start);
     t_start = (float)st_start.wMinute*60.+(float)st_start.wSecond+(float)st_start.wMilliseconds/1000.;
-    
-    HWAVEOUT hWaveOut = 0;
-    int n_bits_per_sample = 16;
-	WAVEFORMATEX wfx = { WAVE_FORMAT_PCM, channels, sample_rate, sample_rate*channels*n_bits_per_sample/8, channels*n_bits_per_sample/8, n_bits_per_sample, 0 };
-	waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL);
-	
-	WAVEHDR header = { smusic1, music1_size/4, 0, 0, 0, 0, 0, 0 };
-	waveOutPrepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
-	waveOutWrite(hWaveOut, &header, sizeof(WAVEHDR));
-	waveOutUnprepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
-    waveOutClose(hWaveOut);
     
     return 0;
 }
@@ -127,6 +116,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             GetSystemTime(&st_now);
             float t_now = (float)st_now.wMinute*60.+(float)st_now.wSecond+(float)st_now.wMilliseconds/1000.;
             
+            if(t_now-t_start > duration1) 
+            {
+                ExitProcess(0);
+                return;
+            }
+            
             if(progress < 1.)
             {
                 glUseProgram(lb_program);
@@ -141,28 +136,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 glUniform2f(gfx_resolution_location, w, h);
             }
             
-            glClearColor(0.,0.,0.,1.);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            glLoadIdentity();
-            glColor3f( 1.0, 1., 0.0);
-            glPolygonMode(GL_FRONT, GL_FILL);
-
-            glBegin(GL_TRIANGLES);
-
-            glVertex3f(-1.,-1.,0.);
-            glVertex3f(-1.,1.,0.);
-            glVertex3f(1.,1.,0.);
-
-            glVertex3f(1.,1.,0.);
-            glVertex3f(1.,-1.,0.);
-            glVertex3f(-1.,-1.,0.);
-
+            glBegin(GL_QUADS);
+            
+            glVertex3f(-1,-1,0);
+            glVertex3f(-1,1,0);
+            glVertex3f(1,1,0);
+            glVertex3f(1,-1,0);
+            
             glEnd();
 
             glFlush();
             
             SwapBuffers(hdc);
+            break;
+            
+        default:
             break;
             
     }
@@ -319,7 +307,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     sfx_blockoffset_location = glGetUniformLocation(sfx_program, VAR_IBLOCKOFFSET);
     sfx_volumelocation = glGetUniformLocation(sfx_program, VAR_IVOLUME);
     
-    int nblocks1 = channels*sample_rate*duration1/block_size;
+    int nblocks1 = sample_rate*duration1/block_size+1;
     music1_size = nblocks1*block_size; 
     smusic1 = (float*)malloc(4*music1_size);
     
@@ -384,6 +372,17 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
             NULL,          // argument to thread function 
             0,                      // use default creation flags 
             &loading_thread_id);   // returns the thread identifier 
+    
+    HWAVEOUT hWaveOut = 0;
+    int n_bits_per_sample = 16;
+	WAVEFORMATEX wfx = { WAVE_FORMAT_PCM, channels, sample_rate, sample_rate*channels*n_bits_per_sample/8, channels*n_bits_per_sample/8, n_bits_per_sample, 0 };
+	waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL);
+	
+	WAVEHDR header = { smusic1, 4*music1_size, 0, 0, 0, 0, 0, 0 };
+	waveOutPrepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
+	waveOutWrite(hWaveOut, &header, sizeof(WAVEHDR));
+// 	waveOutUnprepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
+//     waveOutClose(hWaveOut);
     
     // Main loop
     MSG msg;

@@ -43,15 +43,9 @@ size_t strlen(const char *str)
     return len;
 }
 
-#define ALLOC_MAX 1024*1024*128 // Allocate fixed buffer where we operate on. Max size is 128 MB.
-char *mem[ALLOC_MAX];
-size_t heapsize = 0;
-
-void *malloc(size_t size)
+void *malloc( unsigned int size )
 {
-    heapsize += size;
-    if(heapsize >= ALLOC_MAX) return NULL;
-    return mem + heapsize;
+    return GlobalAlloc(GMEM_ZEROINIT, size);
 }
 
 // OpenGL extensions
