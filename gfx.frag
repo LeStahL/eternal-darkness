@@ -25,7 +25,7 @@ const vec3 c = vec3(1., 0., -1.);
 
 vec2 vi;
 float t;
-#define T .5
+#define T .4286
 
 float rand(vec2 a0)
 {
@@ -343,7 +343,7 @@ vec2 scene2(vec3 x)
 //tree fog scene
 vec2 scene3(vec3 x)
 {
-    x += c.yxy*5.e-1*t;
+    x += c.yxy*5.e-1*t+.5*c.yyx;
     vec3 y = vec3(mod(x.x, 2.)-1., mod(x.y, 2.)-1., x.z), z = x-y;
     vec2 sda = vec2(length(y.xy-.5*vec2(rand(z.xy),rand(z.xy*1.1)))-.1, 1.), 
         sdb = vec2(x.z-.2*mfsmoothstep_noise2d(x.xy, .9, 1., .1), 1.);
@@ -432,10 +432,10 @@ vec2 scene5(vec3 x)
 
 vec2 scene(vec3 x)
 {
-    if(t < 20.) return scene1(x);//TODO: direction
-    else if(t < 30.) return scene2(x);
-    else if(t < 40.) return scene3(x);
-    else if(t < 50.) return scene4(x);
+    if(t < 48.*.4286) return scene1(x);//TODO: direction
+    else if(t < 96.*.4286) return scene2(x);
+    else if(t < 144.*.4286) return scene3(x);
+    else if(t < 184.*.4286) return scene4(x);
     else if(t < 7000.) return scene5(x);
 }
 
@@ -482,7 +482,7 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
     vec2 s;
     vec3 x, o = .5+.5*mfsmoothstep_noise2d(c.yy, .9, 1., .1)-c.yxy+.5*c.yyx, ta = .25*c.yyx, r = c.xyy, u = c.yyx, 
         rt = ta + r * uv.x + u * uv.y, rd = normalize(rt-o);
-    if(t>40.)
+    if(t>144.*.43)
     {
         o = -c.yxy;
         ta=c.yyy;
@@ -490,13 +490,13 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
     //raymarching
     float d = 0., vc = 0., cd = 0., ci=15.;
     int ni = 100;
-    if(time > 20.) ci = 55.;
-    if(time > 30.) 
+    if(time > 48.*.43) ci = 55.;
+    if(time > 96.*.43) 
     {
         ci = 50.;
         ni = 200;
     }
-    else if(time > 40.) ci = 200.;
+    else if(time > 144.*.43) ci = 200.;
     for(int i=0; i<ni; ++i)
     {
         x = o + d * rd;
@@ -556,9 +556,9 @@ void fore(out vec4 fragColor, in vec2 uv, float time)
     else col = c.yyy;
     
     //fog
-    if(time < 20.)
+    if(time < 48.*.4286)
 	    col = mix(col, .15*c.xxx, cosh(-2.e-0*x.z)*tanh(1.09e-1*x.y));
-    else if(time < 40.)
+    else if(time < 96.*.4286)
         col = mix(col, c.xxx, tanh(1.e-1*x.y));
     else if(time < 7000.)
         col = mix(col, c.xxx, tanh(8.e-2*x.y));

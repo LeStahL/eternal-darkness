@@ -4,7 +4,7 @@ uniform float iBlockOffset;
 uniform float iSampleRate;
 uniform float iVolume;
 
-#define PI radians(180.)
+const float PI = acos(-1.);
 float _sin(float a) { return sin(2. * PI * mod(a,1.)); }
 float _unisin(float a,float b) { return (.5*_sin(a) + .5*_sin((1.+b)*a)); }
 float _sq(float a) { return sign(2.*fract(a) - 1.); }
@@ -24,7 +24,7 @@ const float SPB = 60./BPM;
 
 float doubleslope(float t, float a, float d, float s)
 {
-    return smoothstep(-.00001,a,t) - (1.-s) * smoothstep(0.,d,t-a);
+   return smoothstep(-.00001,a,t) - (1.-s) * smoothstep(0.,d,t-a);
 }
 
 float s_atan(float a) { return 2./PI * atan(a); }
@@ -49,11 +49,6 @@ float TRISQ(float t, float f, int MAXN, float MIX, float INR, float NDECAY, floa
     }
    
     return ret;
-}
-
-float QTRISQ(float t, float f, float QUANT, int MAXN, float MIX, float INR, float NDECAY, float RES, float RES_Q)
-{
-    return TRISQ(quant(t,QUANT,1./QUANT), f, MAXN, MIX, INR, NDECAY, RES, RES_Q);
 }
 
 float env_ADSR(float x, float L, float A, float D, float S, float R)
@@ -91,77 +86,6 @@ float macesaw(float t, float f, float CO, float Q, float det1, float det2, float
             }
         }
     return s;
-}
-
-float maceskuh(float t, float f, float CO, float Q, float det1, float det2, float res, float resQ, float pw)
-{
-    float s = 0.;
-    float inv_CO = 1./CO;
-    float inv_resQ = 1./resQ;
-    float p = f*t;
-        for(int N=1; N<=200; N++)
-        {
-            // variable pulse wave: voll verrechnet, klingt aber geil =D
-            float plscomp  = 1./float(N) * (1. + (2.*float(N%2)-1.)*_sin(pw));
-            float filterN  = pow(1. + pow(float(N)*f*inv_CO,Q),-.5)
-                     + res * exp(-pow((float(N)*f-CO)*inv_resQ,2.));
-           
-            if(abs(filterN*plscomp) < 1e-6) break;
-               
-            if(det1 > 0. || det2 > 0.)
-            {
-                s += 0.33 * (_sin(float(N)*p) + _sin(float(N)*p*(1.+det1)) + _sin(float(N)*p*(1.+det2)));
-            }
-            else
-            {
-                s += filterN * plscomp * _sin(float(N)*p);
-            }
-        }
-    return 2.*s-1.;
-}
-
-
-float macesanderekuh(float t, float f, float CO, float Q, float det1, float det2, float res, float resQ, float pw)
-{
-    float s = 0.;
-    float inv_CO = 1./CO;
-    float inv_resQ = 1./resQ;
-    float p = f*t;
-        for(int N=1; N<=200; N++)
-        {
-            // varialbe pulse wave:
-            float plscomp  = 1./(2.*PI*float(N)) * (minus1hochN(N)*_sin(pw*float(N)+.25) - 1.);
-            float filterN  = pow(1. + pow(float(N)*f*inv_CO,Q),-.5)
-                     + res * exp(-pow((float(N)*f-CO)*inv_resQ,2.));
-           
-            if(abs(filterN*plscomp) < 1e-6) break;
-               
-            if(det1 > 0. || det2 > 0.)
-            {
-                s += 0.33 * (_sin(float(N)*p) + _sin(float(N)*p*(1.+det1)) + _sin(float(N)*p*(1.+det2)));
-            }
-            else
-            {
-                s += filterN * plscomp * _sin(float(N)*p);
-            }
-        }
-    return 2.*s-1.;
-}
-
-
-float freq_malformation(float t, float t_on, int vel, int Bsyn)
-{
-    t = t - min(t, t_on);
-   
-    float f = 80.;
-   
-    float fFM = 100.;
-    float aFM = 0.01 * doubleslope(t, 0.8, 0.4, 0.5);
-    float aFB = 0.000;
-   
-    float E = doubleslope(t, 0.2, 1., 0.);
-    float r = _sin(t * f * (1. + aFM * _sin(t * fFM * (1. + aFB * _sin(t*fFM)))));
-    return E * r;
 }
 
 float snare(float t, float t_on, float vel)
@@ -244,36 +168,6 @@ float hardkick(float t, float t_on, float vel)
     return vel * 2.*clamp(kick_body + kick_blobb + kick_click,-1.5,1.5);
 }
 
-float oddnoise(float t, float t_on, float vel)
-{
-    t = t - min(t, t_on); // reset time to Bon event
-   
-    float kick_click = 1.5*step(t,0.05) * _sin(t*5000. * _saw(t*1000.));
-   
-    kick_click = s_atan(8.*(1.-exp(-1000.*t))*exp(-80.*t) * _sin((1200.-1000.*sin(1000.*t*t))*t));
-   
-    return vel * 2.*clamp(kick_click,-1.5,1.5);
-}
-
-float FM23(float _t, float B, float Boff, float note)
-{
-    // now model after DX reface
-    // frequency ratio
-    float FR2 = .9999;
-    float FR1 = 6.;
-    // level
-    float LV2 = 0.5;
-    float LV1 = 0.6;
-    // feedback
-    float FB2 = 0.1;
-    float FB1 = 0.2;
-    // actual algorithm (5?)
-    float OP2 = _saw(_t * FR2 * (freqC1(note) + FB2 * _saw(_t * FR2 * freqC1(note))));
-    float OP1 = LV1 * _tri(_t * FR1 * freqC1(note) + LV2 * OP2 + FB1 * _sin(_t * FR1 * freqC1(note)));
-
-    return OP1;
-}
-
 float distsin(float t, float B, float Bon, float Boff, float note, int Bsyn)
 {
     float Bprog = B-Bon;            // progress within Bar
@@ -288,230 +182,6 @@ float distsin(float t, float B, float Bon, float Boff, float note, int Bsyn)
    
     if(Bsyn == 0)
         return env * sound; // test reasons: just give out something simple
-
-    if(Bsyn == 23)
-    {
-
-        float kappa = 1.4;
-    //sound = _unisin(t*freqC1(note),0.001)
-      //  + _tri(t*2.*freqC1(note)*(1.+0.0001*_sin(0.5*Bproc))) * smoothstep(0.0,0.3, Bprog);
-
-    //try some trumpet sound
-    //float freq_LFO = 0.005 * smoothstep(0.,1.,_t) * _tri(_t);
-    //sound = _saw(_t*freqC1(note)*(1.+freq_LFO) + 0.3 * smoothstep(0.,0.7,_t) * _saw(_t*3.01*freqC1(note)));
-       
-        float rel = .3;
-        env = smoothstep(0., 0.001, B-Bon) * pow(smoothstep(rel, 0., B-Boff),2.5);
-
-        env *= exp(-kappa*(B-Bon));
-       
-        note += 0.;
-
-        float delta = 2.e-5 * (1.+.5*sin(2.*B));
-        int filtN = 40;
-        sound = 0.;
-       
-        for(int i = 0; i < filtN; i++)
-            sound += 0.08 * FM23(_t + float(i)*delta, B, Boff, note);
-       
-        sound = .7*clamp(4.*sound,-1.,1.);
-       
-    }   
-   
-    if(Bsyn == 14) // test of mace-sq (matzeskuh)
-    {
-        env *= env_ADSR(Bprog,Boff-Bon,2.,0.,0.2,2.);
-       
-        env *= 0.5;
-       
-        float filterCO = 600. * env_ADSR(Bprog,Boff-Bon,2.,0.,1.,2.) + 40. * sqrt(f);
-
-        sound += 0.3*macesanderekuh(t, f, filterCO, 30., 0.002, -0.01, 0.0, 0.0, 0.1);
-       
-        sound = clip(0.8*sound);
-    }
-
-    if(Bsyn == 15) // can I manage some horns, some day?
-    {
-        env *= env_ADSR(Bprog,Boff-Bon,3.,0.,0.2,2.);
-       
-        env *= 0.5;
-       
-        float filterCO = 100. * env_ADSR(Bprog,Boff-Bon,2.,0.,1.,2.) + 20. * sqrt(f);
-
-        sound = 0.2*macesaw(t, f, filterCO, 50., -0.01-0.005*_sin(0.5*Bproc), 0.01-0.008*_sin(0.25*Bproc+.25), 0.0, 0.);
-
-        sound += 0.3*maceskuh(t, f, filterCO, 30., 0.002, -0.01, 0.0, 0.0, 0.1+0.06*_sin(0.25*_t));
-
-//        sound += 0.1*maceskuh(t, 2.*f, filterCO, 10., 0.004, -0.002, 0.0, 0.0, -0.1+0.03*_sin(2.*t));
-       
-        sound = clip(0.8*sound);
-    }
-   
-    if(Bsyn == 16) // super saw pad
-    {
-        env *= env_ADSR(Bprog,Boff-Bon,1.5,2.,0.2,0.8);
-       
-        env *= 0.5;
-       
-        float filterQ = 100.;
-        float filterCO = 200. + 100. * env_ADSR(Bprog,Boff-Bon,1.5,2.5,0.2,10.);
-
-        sound = 0.9*macesaw(t, f, filterCO, filterQ, 0.010, 0.016, 0.0, 0.);
-           // t --> quanti(t, 4096); // some nice wicked lo-bit shit
-       
-    
-        sound = 0.4 * (0.5*_saw(t*f+.1+0.1*_sin(2.*t)) + _saw(t*f+.25) + _saw(t*f+0.2*_sin(0.5*t)));
-        // lo-fi noise
-        //sound = quanti(sound, 128.);
-    }
-   
-    if(Bsyn == 17) // deftiges pad
-    {
-        env *= env_ADSR(Bprog,Boff-Bon,1.5,2.,0.2,0.8);
-       
-        env *= 0.5;
-       
-        float filterQ = 20.;
-        float filterCO = 200. + 100. * env_ADSR(Bprog,Boff-Bon,1.5,2.5,0.2,10.);
-
-        sound = 0.9*macesaw(t, f, filterCO, filterQ, 0.010, 0.020, 0.3, 3.);
-           // t --> quanti(t, 4096); // some nice wicked lo-bit shit
-       
-        // lo-fi noise
-        //sound = quanti(sound, 128.);
-    }
-    if(Bsyn == 76)
-    {
-        sound = TRISQ(t, freqC1(note), 160, 0.2, 3. + sin(4.*B), 1.2, 0.2, 0.1);
-    }
- 
-   
-    if(Bsyn == 10) // Alright, this is not mellow, but wayne.
-    {
-        sound = _tri(2.*f*t) + _tri(0.999*2.*f*_t*(1.+0.0001*_sin(4.*_t)));
-       
-        sound += 0.2 * _saw(5.01*f*t)
-               + 0.2 * _saw(14.01*f*t);
-       
-        sound += _saw(t * (f + 1000. * smoothstep(-0.1,0.,-Bprog))) * smoothstep(-0.1,0.,-Bprog);
-       
-        sound *= 0.2;
-    }
-   
-    // replace sound of Bsyn 0 by something squarey (with some automated PWM)
-    if(Bsyn == 20)
-    {
-        sound = QTRISQ(t, freqC1(note), 1024., 16, 0.2, 8. + 20.*smoothstep(0.,0.3,Bproc), 1.2, 0.2, 0.1)
-              + QTRISQ(t, 2.*freqC1(note), 1024., 16, 0.4, 8. + 20.*smoothstep(0.,0.1,Bproc), 1.2, 0.2, 0.1);
-       
-        sound = 0.8 * sound * exp(-4.0*Bprog);
-
-        sound += 0.4*_sin(_t*f) * exp(-2.0*Bprog);
-        sound += 0.4*_tri(_t*4.*f) * exp(-8.0*Bprog);
-       
-        sound += 0.6 * smoothstep(0.,1.2,Bproc) * (0.5 * _squ(_t*f,0.) + 0.5 * _squ(_t*f*.99,0.01));
-       
-        sound = clip(1.3*sound);
-    }
-
-    else if(Bsyn == 12)
-    {
-        float kappa = 1.4;
-        float dist = 1.3;
-
-        env *= exp(-kappa*(B-Bon));
-       
-        float freq_mod = 1. + 0.02 * exp(-10.*(B-Bon)); // edgy sound
-        freq_mod = 1.;
-           
-        //sound = 0.7*sound + 0.3*clamp(2.*dist * _sin(freqC1(note+12)*(t-1e-3)), -0.999,0.999);
-       
-        sound  = 0.7 * _squ(freq_mod * freqC1(note)*t, -0.4 - 0.15*_sin(0.3*(B-Bon)));
-       
-        // add subbass
-        sound += 0.5 * _unisin(freqC1(note)*t,0.05 * _sin(0.25*t));
-
-        //reduce bit depth to 4
-        //sound = quant(sound, 4., 0.25);
-       
-        // try something else, QTRISQ is my additive low-samplerate osci with improvized filter
-        // QTRISQ(float t, float f, float QUANT, int MAXN, float MIX, float INR, float NDECAY, float RES, float RES_Q)
-        sound = QTRISQ(t, freqC1(note), 1024., 16, 0.2, 8. + 20.*smoothstep(0.,0.3,Bproc), 1.2, 0.2, 0.1)
-              + QTRISQ(t, 2.*freqC1(note), 1024., 16, 0.4, 8. + 20.*smoothstep(0.,0.1,Bproc), 1.2, 0.2, 0.1);
-       
-        float im = 2. + .5*_sin(0.21*_t);
-        float y = _sin(4.*f*_t + im*_sin(0.25*f*Bproc) );
-       
-    }
-
-    else if(Bsyn == 11)
-    {
-        float kappa = 1.4;
-        float dist = 1.3;
-
-        env *= exp(-kappa*(B-Bon));
-       
-        float freq_mod = 1. + 0.02 * exp(-10.*(B-Bon)); // edgy sound
-        freq_mod = 1.;
-           
-        //sound = 0.7*sound + 0.3*clamp(2.*dist * _sin(freqC1(note+12)*(t-1e-3)), -0.999,0.999);
-       
-        sound  = 0.7 * _squ(freq_mod * freqC1(note)*t, -0.4 - 0.15*_sin(0.3*(B-Bon)));
-       
-        // add subbass
-        sound += 0.5 * _unisin(freqC1(note)*t,0.05 * _sin(0.25*t));
-
-        //reduce bit depth to 4
-        //sound = quant(sound, 4., 0.25);
-
-    }
-
-    else if(Bsyn == 13) // inspired by some other shader. forgot which one. sorry.
-    {
-        float im = 2. + .5*_sin(0.21*_t);
-        float y = _sin(4.*f*_t + im*_sin(0.25*f*Bproc) );
-       
-        sound = y;
-    }
-
-   
-    else if(Bsyn == 4)
-    {
-        sound = QTRISQ(t, freqC1(note), 2048., 20, 0.2, 3. + 5.*smoothstep(0.,0.3,Bproc), 1.2, 0.2, 0.1)
-              + QTRISQ(t, 2.*freqC1(note), 1024., 10, 0.4, 1. + 3.*smoothstep(0.,0.3,Bproc), 1.2, 0.2, 0.1);
-       
-        sound *= 0.3;
-    }
-   
-    else if(Bsyn == 30)
-    {
-        float fir_d = 1.e-3;
-        float fir_a = 2.e-2;
-        sound = 0.;
-        for(float fir = -fir_a; fir < fir_a; fir += fir_d)
-        {
-        sound += .8 * _sin(.5*f*(_t+fir))
-              + TRISQ(t+fir, freqC1(note), 20, 0.2, .01 *smoothstep(0.,0.3,Bproc), 1.2, 0.2, 0.1)
-              + .3*TRISQ(t+fir, 4.*freqC1(note), 10, .3, 1., 0.2, 2., 0.1);
-        }
-        sound = 0.5 * s_crzy(squarey(60.*sound,5.));
-    }   
-   
-    else if(Bsyn == 1)
-    {
-        float dist = 1.55;
-
-        env = smoothstep(0., 0.25, B-Bon) * (1.+0.01*sin(2.*PI*20.*t)); // * theta(Boff-B);
-
-        float rel = .2;
-        env *= smoothstep(rel, -rel, B-Boff);
-      
-        sound = 0.3*(clamp(dist * _sin(freqC1(note)*t)           , -0.999,0.999)
-                   + clamp(dist * _sin(0.999*freqC1(note)*t+0.05), -0.999,0.999));
-
-        sound += 0.7 * _unisin(freqC1(note)*t,0.05);   
-    }
 
     else if(Bsyn == 61)
     {  
@@ -533,58 +203,6 @@ float distsin(float t, float B, float Bon, float Boff, float note, int Bsyn)
 
         sound = 0.9*macesaw(t, f, filterCO, filterQ, 0.010, 0.020, 0.3, 3.);
     }       
-   
-    else if(Bsyn == 2)
-    {  
-        float fFM = 0.33*f;
-        float aFM = 0.3 * doubleslope(_t,1.,5.,0.01);
-        float aFB = 0.02 * doubleslope(_t,2.,8.,0.00);
-   
-        env = doubleslope(B-Bon, 0.002, 2., 0.);
-        sound = _sin(_t * f * (1. + aFM * _sin(_t * fFM * (1. + aFB * _sin(_t * fFM)))));
-       
-        //reduce bit depth to 16
-        sound = quant(sound, 16., 0.0625);
-       
-        // rectify
-        //sound = sign(sound);
-
-        // try downsampling
-        env = doubleslope(B-Bon, 0.01, 8., 0.);
-        sound = 0.3 * _unisin(quant(_t,256.,0.004) * f * .25, 0.05);
-   
-        // check tuning
-        sound += _sin(_t * f * 0.25);
-    }   
-   
-    else if(Bsyn == 3)
-    {
-        float kappa = 1.4;
-        env *= exp(-kappa*(B-Bon));
-        sound = _unisin(t*freqC1(note),0.001)
-              + _tri(t*2.*freqC1(note)*(1.+0.0001*_sin(0.5*Bproc))) * smoothstep(0.0,0.3, Bprog);
-
-        //try some trumpet sound
-        float freq_LFO = 0.005 * smoothstep(0.,1.,_t) * _tri(_t);
-        sound = _saw(_t*freqC1(note)*(1.+freq_LFO) + 0.3 * smoothstep(0.,0.7,_t) * _saw(_t*3.01*freqC1(note)));
-       
-        // now model after DX reface
-        // frequency ratio
-        float FR2 = 0.998;
-        float FR1 = 0.5;
-           // level
-        float LV2 = 0.5;
-        float LV1 = 1.;
-        // feedback
-        float FB2 = 0.1;
-        float FB1 = 0.6;
-        // actual algorithm (5?)
-        float OP2 = _saw(_t * FR2 * (freqC1(note) + FB2 * _saw(_t * FR2 * freqC1(note))));
-        float OP1 = LV1 * _saw(_t * FR1 * freqC1(note) + LV2 * OP2 + FB1 * _sin(_t * FR1 * freqC1(note)));
-       
-        sound = 0.66 * OP1;
-       
-    }   
 
     if(Bsyn == 76)
     {
@@ -617,7 +235,7 @@ int ptn_sep[18] = int[18](0,2,12,43,74,107,132,160,183,208,222,254,310,347,357,3
 float note_on[373] = float[373](0.,.5,0.,.25,.375,.5,.625,1.,1.25,1.375,1.5,1.625,0.,.0625,.125,.1875,.25,.3125,.375,.4375,.5,.5625,.625,.6875,.8125,.875,.9375,1.,1.0625,1.125,1.1875,1.25,1.3125,1.375,1.4375,1.5,1.5625,1.625,1.6875,1.75,1.8125,1.875,1.9375,0.,.0625,.125,.1875,.25,.3125,.375,.4375,.5,.5625,.625,.6875,.8125,.875,.9375,1.,1.0625,1.125,1.1875,1.25,1.3125,1.375,1.4375,1.5,1.5625,1.625,1.6875,1.75,1.8125,1.875,1.9375,0.,0.,.0625,.125,.1875,.25,.3125,.375,.4375,.5,.5625,.625,.6875,.75,.8125,.875,.9375,1.,1.0625,1.125,1.1875,1.25,1.3125,1.375,1.4375,1.5,1.5625,1.625,1.6875,1.75,1.8125,1.875,1.9375,.0625,.125,.1875,.3125,.375,.4375,.5625,.625,.6875,.8125,.875,.9375,1.0625,1.125,1.1875,1.3125,1.375,1.4375,1.5625,1.625,1.6875,1.75,1.8125,1.875,1.9375,0.,0.,0.,0.,.375,.375,.375,.375,.5,.5,.5,.5,.875,.875,.875,.875,1.,1.,1.,1.,1.375,1.375,1.375,1.375,1.5,1.5,1.5,1.5,.0625,.125,.1875,.25,.3125,.375,.5625,.625,.6875,.75,.8125,.875,1.0625,1.125,1.1875,1.25,1.3125,1.375,1.5,1.5625,1.625,1.8125,1.875,.0625,.125,.1875,.3125,.375,.4375,.5625,.625,.6875,.8125,.875,.9375,1.0625,1.125,1.1875,1.3125,1.375,1.4375,1.5625,1.625,1.6875,1.75,1.8125,1.875,1.9375,.0625,.125,.1875,.25,.3125,.375,.4375,.5625,.625,.6875,.75,.8125,.875,.9375,0.,.0625,.125,.1875,.25,.3125,.375,.4375,.5,.5625,.625,.6875,.75,.8125,.875,.9375,1.,1.0625,1.125,1.1875,1.25,1.3125,1.375,1.4375,1.5,1.5625,1.625,1.6875,1.75,1.8125,1.875,1.9375,.0625,.0625,.0625,.125,.1875,.1875,.1875,.3125,.3125,.3125,.375,.4375,.4375,.4375,.5625,.5625,.5625,.625,.6875,.6875,.6875,.8125,.8125,.8125,.875,.9375,.9375,.9375,1.0625,1.0625,1.0625,1.125,1.1875,1.1875,1.1875,1.3125,1.3125,1.3125,1.375,1.4375,1.4375,1.4375,1.5625,1.5625,1.5625,1.625,1.6875,1.6875,1.6875,1.8125,1.8125,1.8125,1.875,1.9375,1.9375,1.9375,0.,.03125,.09375,.09375,.125,.28125,.3125,.34375,.375,.5,.53125,.5625,.59375,.75,.78125,.84375,.875,1.,1.,1.03125,1.0625,1.09375,1.28125,1.3125,1.34375,1.375,1.5,1.5,1.53125,1.5625,1.59375,1.6875,1.75,1.78125,1.8125,1.84375,1.875,0.,0.,.0625,.125,.1875,.25,.25,.3125,.375,.4375,0.,.0625,.125,.1875,.25,.3125,.375,.4375,.3125,.4375,0.,0.,0.,.5,.5,.5);
 float note_off[373] = float[373](.5,2.,.25,.5,.4375,1.,.6875,1.25,1.5,1.4375,2.,1.6875,.25,.125,.1875,.25,.5,.375,.4375,.5,1.,.625,.6875,.75,.875,.9375,1.,1.25,1.125,1.1875,1.25,1.5,1.375,1.4375,1.5,2.,1.625,1.6875,1.75,1.8125,1.875,1.9375,2.,.25,.125,.1875,.25,.5,.375,.4375,.5,1.,.625,.6875,.75,.875,.9375,1.,1.25,1.125,1.1875,1.25,1.5,1.375,1.4375,1.5,2.,1.625,1.6875,1.75,1.8125,1.875,1.9375,2.,.0625,.0625,.125,.1875,.25,.3125,.375,.4375,.5,.5625,.625,.6875,.75,.8125,.875,.9375,1.,1.0625,1.125,1.1875,1.25,1.3125,1.375,1.4375,1.5,1.5625,1.625,1.6875,1.75,1.8125,1.875,1.9375,2.,.125,.1875,.25,.375,.4375,.5,.625,.6875,.75,.875,.9375,1.,1.125,1.1875,1.25,1.375,1.4375,1.5,1.625,1.6875,1.75,1.8125,1.875,1.9375,2.,.25,.25,.25,.25,.5,.5,.5,.5,.75,.75,.75,.75,1.,1.,1.,1.,1.25,1.25,1.25,1.25,1.5,1.5,1.5,1.5,1.75,1.75,1.75,1.75,.09375,.1875,.25,.28125,.34375,.5,.59375,.6875,.75,.78125,.84375,1.,1.09375,1.1875,1.25,1.28125,1.34375,1.5,1.5625,1.59375,1.75,1.84375,2.,.125,.1875,.25,.375,.4375,.5,.625,.6875,.75,.875,.9375,1.,1.125,1.1875,1.25,1.375,1.4375,1.5,1.625,1.6875,1.75,1.8125,1.875,1.9375,2.,.125,.1875,.25,.3125,.375,.4375,.5,.625,.6875,.75,.8125,.875,.9375,1.,.0625,.125,.1875,.25,.3125,.375,.4375,.5,.5625,.625,.6875,.75,.8125,.875,.9375,1.,1.0625,1.125,1.1875,1.25,1.3125,1.375,1.4375,1.5,1.5625,1.625,1.6875,1.75,1.8125,1.875,1.9375,2.,.125,.125,.125,.1875,.25,.25,.25,.375,.375,.375,.4375,.5,.5,.5,.625,.625,.625,.6875,.75,.75,.75,.875,.875,.875,.9375,1.,1.,1.,1.125,1.125,1.125,1.1875,1.25,1.25,1.25,1.375,1.375,1.375,1.4375,1.5,1.5,1.5,1.625,1.625,1.625,1.6875,1.75,1.75,1.75,1.875,1.875,1.875,1.9375,2.,2.,2.,.0625,.0625,.125,.15625,.1875,.3125,.375,.375,.4375,.5625,.5625,.625,.625,.8125,.8125,.875,.9375,1.0625,1.0625,1.0625,1.125,1.125,1.3125,1.375,1.375,1.4375,1.5625,1.5625,1.5625,1.625,1.625,1.75,1.8125,1.8125,1.875,1.875,1.9375,.0625,.0625,.125,.1875,.25,.3125,.3125,.375,.4375,.5,.125,.125,.25,.25,.375,.375,.5,.5,.375,.5,.5,.46875,.46875,1.875,2.,1.96875);
 float note_pitch[373] = float[373](22.,17.,29.,36.,29.,37.,32.,29.,35.,32.,31.,24.,29.,17.,24.,17.,36.,24.,29.,24.,37.,25.,33.,25.,25.,34.,33.,30.,17.,24.,17.,35.,19.,26.,19.,31.,13.,24.,13.,10.,12.,13.,15.,41.,29.,36.,29.,48.,36.,41.,36.,49.,37.,45.,37.,37.,46.,45.,42.,29.,36.,29.,47.,31.,38.,31.,43.,25.,36.,25.,22.,24.,25.,29.,36.,36.,41.,48.,36.,37.,41.,44.,49.,37.,41.,44.,49.,34.,37.,41.,43.,44.,36.,37.,41.,43.,36.,44.,36.,43.,32.,31.,29.,36.,32.,31.,25.,17.,24.,17.,24.,29.,24.,25.,33.,25.,25.,34.,33.,17.,24.,17.,19.,26.,19.,13.,24.,13.,10.,12.,13.,15.,17.,32.,41.,48.,28.,12.,36.,43.,34.,6.,37.,49.,34.,10.,26.,53.,15.,56.,43.,27.,10.,26.,34.,53.,12.,53.,36.,31.,48.,46.,44.,43.,41.,43.,44.,43.,41.,40.,37.,40.,44.,46.,44.,43.,41.,44.,48.,49.,43.,41.,43.,29.,36.,29.,36.,41.,36.,37.,45.,37.,37.,46.,45.,29.,36.,29.,31.,38.,31.,25.,36.,25.,26.,28.,28.,28.,17.,29.,17.,20.,24.,28.,23.,17.,24.,17.,20.,25.,32.,27.,17.,17.,17.,17.,24.,24.,24.,24.,17.,17.,17.,17.,16.,16.,16.,16.,17.,17.,17.,17.,19.,19.,19.,19.,20.,20.,20.,20.,23.,23.,23.,23.,41.,17.,36.,29.,46.,17.,32.,36.,24.,41.,28.,40.,43.,24.,44.,41.,17.,24.,44.,36.,17.,43.,36.,16.,23.,43.,36.,16.,44.,36.,17.,24.,44.,36.,17.,43.,46.,19.,12.,46.,40.,19.,48.,44.,25.,22.,48.,44.,25.,52.,43.,29.,24.,52.,43.,29.,23.,26.,26.,23.,25.,26.,23.,26.,25.,25.,26.,23.,26.,23.,26.,26.,25.,25.,23.,26.,23.,26.,26.,23.,26.,25.,25.,23.,26.,23.,26.,23.,23.,26.,23.,26.,25.,23.,37.,35.,35.,34.,37.,34.,35.,35.,37.,23.,26.,23.,3.,23.,26.,23.,3.,25.,25.,22.,41.,53.,53.,17.,44.);
-float note_vel[373] = float[373](1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.);
+float note_vel = 1.;
 
 
 float max_release = 0.3;
@@ -740,7 +358,6 @@ vec2 mainSound(float t)
    
     return vec2(mainSynth(t));
 }
-
 void main() 
 {
    // compute time `t` based on the pixel we're about to write

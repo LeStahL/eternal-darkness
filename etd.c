@@ -70,6 +70,7 @@ PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC glNamedRenderbufferStorageEXT;
 
 // Shader globals
 int w = 1920, h = 1080; // TODO: add a way of configuring this in the future.
+// int w = 1366, h = 768;// TODO: remove
 int lb_program, lb_progress_location, lb_resolution_location, lb_time_location;
 int gfx_program, gfx_time_location, gfx_resolution_location;
 int sfx_program, sfx_blockoffset_location, sfx_samplerate_location, sfx_volumelocation;
@@ -81,10 +82,11 @@ float progress = 0.;
 HANDLE loading_thread;
 DWORD loading_thread_id;
 int sample_rate = 44100, channels = 2;
-double duration1 = 3.*60.; //3 min running time
+double duration1 = 312.*.43; //3 min running time
 float *smusic1;
 int music1_size;
-int block_size = 512*512;
+#define texs 512
+int block_size = texs*texs;
 
 DWORD WINAPI LoadingThread( LPVOID lpParam)
 {
@@ -295,6 +297,12 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
 #undef VAR_ISAMPLERATE
 #undef VAR_IVOLUME
 #include "sfx.h"
+#ifndef VAR_IVOLUME
+#define VAR_IVOLUME "iVolume"
+#ifndef VAR_ISAMPLERATE
+#define VAR_ISAMPLERATE "iSampleRate"
+#ifndef VAR_IBLOCKOFFSET
+#define VAR_IBLOCKOFFSET "iBlockOffset"
     int sfx_size = strlen(sfx_frag),
         sfx_handle = glCreateShader(GL_FRAGMENT_SHADER);
     sfx_program = glCreateProgram();
@@ -306,6 +314,9 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     sfx_samplerate_location = glGetUniformLocation(sfx_program, VAR_ISAMPLERATE);
     sfx_blockoffset_location = glGetUniformLocation(sfx_program, VAR_IBLOCKOFFSET);
     sfx_volumelocation = glGetUniformLocation(sfx_program, VAR_IVOLUME);
+#endif
+#endif
+#endif
     
     int nblocks1 = sample_rate*duration1/block_size+1;
     music1_size = nblocks1*block_size; 
@@ -320,7 +331,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     unsigned int snd_texture;
     glGenTextures(1, &snd_texture);
     glBindTexture(GL_TEXTURE_2D, snd_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA, 512, 512, 0, GL_RGBA, GL_BYTE, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA, texs, texs, 0, GL_RGBA, GL_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
@@ -333,7 +344,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     {
         double tstart = (double)(i*block_size)/(double)sample_rate;
         
-        glViewport(0,0,512,512);
+        glViewport(0,0,texs,texs);
         
         glUniform1f(sfx_volumelocation, 1.);
         glUniform1f(sfx_samplerate_location, (float)sample_rate);
@@ -348,7 +359,7 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
 
         glFlush();
 
-        glReadPixels(0, 0, 512, 512, GL_RGBA, GL_BYTE, smusic1+i*block_size);
+        glReadPixels(0, 0, texs, texs, GL_RGBA, GL_BYTE, smusic1+i*block_size);
     }
     
     // Reset everything for rendering gfx again

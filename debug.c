@@ -331,24 +331,38 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     gfx_time_location =  glGetUniformLocation(gfx_program, "iTime");
     gfx_resolution_location = glGetUniformLocation(gfx_program, "iResolution");
     
+    
+    printf("SFX\n");
     // Init sfx
 #undef VAR_IBLOCKOFFSET
 #undef VAR_ISAMPLERATE
 #undef VAR_IVOLUME
 #include "sfx.h"
+    #undef VAR_IBLOCKOFFSET
+#undef VAR_ISAMPLERATE
+#undef VAR_IVOLUME
+#include "sfx.h"
+#ifndef VAR_IVOLUME
+#define VAR_IVOLUME "iVolume"
+#ifndef VAR_ISAMPLERATE
+#define VAR_ISAMPLERATE "iSampleRate"
+#ifndef VAR_IBLOCKOFFSET
+#define VAR_IBLOCKOFFSET "iBlockOffset"
     int sfx_size = strlen(sfx_frag),
         sfx_handle = glCreateShader(GL_FRAGMENT_SHADER);
     sfx_program = glCreateProgram();
     glShaderSource(sfx_handle, 1, (GLchar **)&sfx_frag, &sfx_size);
     glCompileShader(sfx_handle);
-//     debug(sfx_handle);
+    debug(sfx_handle);
     glAttachShader(sfx_program, sfx_handle);
     glLinkProgram(sfx_program);
     glUseProgram(sfx_program);
     sfx_samplerate_location = glGetUniformLocation(sfx_program, VAR_ISAMPLERATE);
     sfx_blockoffset_location = glGetUniformLocation(sfx_program, VAR_IBLOCKOFFSET);
     sfx_volumelocation = glGetUniformLocation(sfx_program, VAR_IVOLUME);
-    
+#endif
+#endif
+#endif    
     int nblocks1 = channels*sample_rate*duration1/block_size;
     music1_size = nblocks1*block_size; 
     music1 = (float*)malloc(4*block_size);
