@@ -23,17 +23,14 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 if(WIN32)
     add_definitions(/Gy /O1 /fp:fast /GR- /GS- /MT)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ENTRY:demo /SUBSYSTEM:Windows  /OPT:REF  /OPT:ICF=10 /VERBOSE /NODEFAULTLIB") 
-    add_executable(debug debug.c)
+    
     add_executable(etd etd.c)
+    target_link_libraries(etd opengl32.lib Winmm.lib)
+    
+    add_executable(debug debug.c)
+    target_link_libraries(debug opengl32.lib Winmm.lib User32.lib ucrt.lib msvcrt.lib)
 elseif(UNIX)
     add_definitions(-Oz)
     add_executable(etd etd-linux.c)
-endif()
-
-
-if(WIN32)
-    target_link_libraries(etd opengl32.lib Winmm.lib)
-    target_link_libraries(debug opengl32.lib Winmm.lib User32.lib ucrt.lib msvcrt.lib)
-elseif(UNIX)
     target_link_libraries(etd X11 GL asound m pthread dl)
 endif()
