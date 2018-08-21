@@ -20,12 +20,20 @@ project(eternal-darkness)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-add_definitions(/Gy /O1 /fp:fast /GR- /GS- /MT)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ENTRY:demo /SUBSYSTEM:Windows  /OPT:REF  /OPT:ICF=10 /VERBOSE /NODEFAULTLIB") # /ENTRY:demo /NODEFAULTLIB
-add_executable(etd etd.c)
+if(WIN32)
+    add_definitions(/Gy /O1 /fp:fast /GR- /GS- /MT)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ENTRY:demo /SUBSYSTEM:Windows  /OPT:REF  /OPT:ICF=10 /VERBOSE /NODEFAULTLIB") 
+    add_executable(debug debug.c)
+    add_executable(etd etd.c)
+elseif(UNIX)
+    add_definitions(-Oz)
+    add_executable(etd etd-linux.c)
+endif()
 
-# TODO: remove ucrt.lib if DEBUG is undefined in-source
-target_link_libraries(etd opengl32.lib Winmm.lib) #ucrt.lib  libcmt.lib version.lib imm32.lib winmm.lib
 
-add_executable(debug debug.c)
-target_link_libraries(debug opengl32.lib Winmm.lib User32.lib ucrt.lib msvcrt.lib)
+if(WIN32)
+    target_link_libraries(etd opengl32.lib Winmm.lib)
+    target_link_libraries(debug opengl32.lib Winmm.lib User32.lib ucrt.lib msvcrt.lib)
+elseif(UNIX)
+    target_link_libraries(etd X11 GL asound m pthread dl)
+endif()
