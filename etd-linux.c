@@ -62,14 +62,15 @@ int sfx_program, sfx_blockoffset_location, sfx_samplerate_location, sfx_volumelo
 double t_start = 0.;
 int loading = 1;
 float progress = 0.;
-int loading_thread_handle;
-pthread_t loading_thread;
+int loading_thread_handle, music_thread_handle;
+pthread_t loading_thread, music_thread;
 int sample_rate = 44100, channels = 2;
 double duration1 = 312.*.43; //3 min running time
 float *smusic1;
 int music1_size;
 #define texs 512
 int block_size = texs*texs;
+snd_pcm_t *snd_handle;
 
 void LoadingThread()
 {
@@ -83,8 +84,11 @@ void LoadingThread()
     struct timeval tv;
     gettimeofday(&tv, NULL);
     t_start = (double)tv.tv_sec+(double)tv.tv_usec/1.e6;
-    
-    return;
+}
+
+void MusicThread()
+{
+    snd_pcm_writei(snd_handle, smusic1, 4*music1_size);
 }
 
 int main(int argc, char **args)
@@ -263,25 +267,13 @@ int main(int argc, char **args)
     // Start loading thread
     loading_thread_handle = pthread_create(&loading_thread, NULL, (void*)&LoadingThread, 0); 
   
-    snd_pcm_t *snd_handle;
     snd_pcm_hw_params_t *params;
     snd_pcm_uframes_t frames;
 
     snd_pcm_open(&snd_handle, PCM_DEVICE, SND_PCM_STREAM_PLAYBACK, 0);
     snd_pcm_set_params(snd_handle, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED, channels, sample_rate, 0, (music1_size)*channels);
     
-    /*
-    HWAVEOUT hWaveOut = 0;
-    int n_bits_per_sample = 16;
-	WAVEFORMATEX wfx = { WAVE_FORMAT_PCM, channels, sample_rate, sample_rate*channels*n_bits_per_sample/8, channels*n_bits_per_sample/8, n_bits_per_sample, 0 };
-	waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL);
-	
-	WAVEHDR header = { smusic1, 4*music1_size, 0, 0, 0, 0, 0, 0 };
-	waveOutPrepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
-	waveOutWrite(hWaveOut, &header, sizeof(WAVEHDR));
-// 	waveOutUnprepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
-//     waveOutClose(hWaveOut);
-*/
+    music_thread_handle = pthread_create(&music_thread, NULL, (void*)&MusicThread, 0);
     
     int x_file_descriptor = ConnectionNumber(display);
     fd_set x_file_descriptor_set;
