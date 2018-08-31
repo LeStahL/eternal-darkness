@@ -65,12 +65,10 @@ PFNGLUNIFORM1FPROC glUniform1f;
 PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
 PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
 PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D;
-// glBlitFramebuffer_t glBlitFramebuffer;
 PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC glNamedRenderbufferStorageEXT;
 
 // Shader globals
 int w = 1920, h = 1080; // TODO: add a way of configuring this in the future.
-// int w = 1366, h = 768;// TODO: remove
 int lb_program, lb_progress_location, lb_resolution_location, lb_time_location;
 int gfx_program, gfx_time_location, gfx_resolution_location;
 int sfx_program, sfx_blockoffset_location, sfx_samplerate_location, sfx_volumelocation;
@@ -251,7 +249,6 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
     glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC) wglGetProcAddress("glGenFramebuffers");
     glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC) wglGetProcAddress("glBindFramebuffer");
     glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) wglGetProcAddress("glFramebufferTexture2D");
-    //     glBlitFramebuffer = (glBlitFramebuffer_t) wglGetProcAddress("glBlitFramebuffer");
     glNamedRenderbufferStorageEXT = (PFNGLNAMEDRENDERBUFFERSTORAGEEXTPROC) wglGetProcAddress("glNamedRenderbufferStorage");
     
     // Init loading bar.
@@ -392,8 +389,6 @@ int WINAPI demo(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, in
 	WAVEHDR header = { smusic1, 4*music1_size, 0, 0, 0, 0, 0, 0 };
 	waveOutPrepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
 	waveOutWrite(hWaveOut, &header, sizeof(WAVEHDR));
-// 	waveOutUnprepareHeader(hWaveOut, &header, sizeof(WAVEHDR));
-//     waveOutClose(hWaveOut);
     
     // Main loop
     MSG msg;
